@@ -14,7 +14,7 @@ the [EUDI Wallet Reference Implementation project description](https://github.co
 >   every URL below that says `https://localhost/...` is actually reachable
 >   at `https://issuer.localhost/...` instead (no port, no direct host-port
 >   publishing from this project's own `docker-compose` - see
->   [`../gateway/`](../gateway/)).
+>   [`../eudi-gateway/`](../eudi-gateway/)).
 > - **Image build step**: `docker-compose/docker-compose.yaml`'s
 >   `pid-issuer` service is set to `pull_policy: never` and expects a
 >   locally-built image, not the upstream `ghcr.io` one. Run
