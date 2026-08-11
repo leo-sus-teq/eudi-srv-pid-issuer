@@ -21,8 +21,8 @@ import arrow.core.raise.Raise
 import arrow.core.raise.context.ensure
 import arrow.core.raise.context.ensureNotNull
 import arrow.core.raise.context.raise
+import arrow.core.raise.context.withError
 import arrow.core.toNonEmptyListOrNull
-import com.eygraber.uri.Uri
 import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.crypto.ECDSASigner
@@ -32,17 +32,16 @@ import com.nimbusds.jose.jwk.JWK
 import com.nimbusds.jose.proc.DefaultJOSEObjectTypeVerifier
 import com.nimbusds.jose.proc.SecurityContext
 import com.nimbusds.jose.proc.SingleKeyJWSKeySelector
-import com.nimbusds.jose.util.Base64
-import com.nimbusds.jose.util.X509CertChainUtils
+import com.nimbusds.jose.util.X509CertUtils
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.proc.DefaultJWTClaimsVerifier
 import com.nimbusds.jwt.proc.DefaultJWTProcessor
-import eu.europa.ec.eudi.pidissuer.domain.KeyAttestationJWT
-import eu.europa.ec.eudi.pidissuer.domain.KeyAttestationRequirement
-import eu.europa.ec.eudi.pidissuer.domain.OpenId4VciSpec
-import eu.europa.ec.eudi.pidissuer.domain.ProofType
-import eu.europa.ec.eudi.pidissuer.port.out.trust.IsTrustedKeyAttestationIssuer
+import eu.europa.ec.eudi.pidissuer.domain.*
+import eu.europa.ec.eudi.pidissuer.port.out.status.GetStatusListTokenStatus
+import eu.europa.ec.eudi.pidissuer.port.out.status.StatusListTokenStatus
+import eu.europa.ec.eudi.pidissuer.port.out.trust.IsTrustedIssuer
 import eu.europa.ec.eudi.pidissuer.port.out.trust.TrustResult
+import eu.europa.ec.eudi.pidissuer.port.out.trust.VerificationContext
 import java.security.cert.X509Certificate
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -51,7 +50,8 @@ import kotlin.time.Instant
 
 class VerifyKeyAttestation(
     private val maxSkew: Duration = 30.seconds,
-    private val isTrustedKeyAttestationIssuer: IsTrustedKeyAttestationIssuer,
+    private val isTrustedIssuer: IsTrustedIssuer,
+    private val getStatusListTokenStatus: GetStatusListTokenStatus,
 ) {
     context(_: Raise<String>, proofType: ProofType.Jwt)
     suspend operator fun invoke(
@@ -102,16 +102,16 @@ class VerifyKeyAttestation(
                     .ensureIsPublicAsymmetricKey()
             verifySignature(key, algorithm, expectExpirationClaim)
             ensureMeetsKeyAttestationRequirements(keyAttestationRequirement)
-            if (walletProviderSigningKey is WalletProviderSigningKey.X5C) {
-                walletProviderSigningKey.ensureTrustWalletProvider()
-            }
+            walletProviderSigningKey.ensureTrustWalletProvider()
+
+            keyAttestation.claims.keyStorageStatus.ensureIsValid()
 
             keyAttestation.claims.attestedKeys.value to nonce
         }
 
     context(_: Raise<String>)
-    private suspend fun WalletProviderSigningKey.X5C.ensureTrustWalletProvider() {
-        val result = isTrustedKeyAttestationIssuer(x5c)
+    private suspend fun WalletProviderSigningKey.ensureTrustWalletProvider() {
+        val result = isTrustedIssuer(x5c, verificationContext = VerificationContext.WalletProviderAttestation)
         ensure(result is TrustResult.IsTrusted) {
             "Key attestation is not issued by a trusted wallet provider"
         }
@@ -120,27 +120,12 @@ class VerifyKeyAttestation(
     context(_: Raise<String>)
     private fun KeyAttestationJWT.extractSigningKey(): WalletProviderSigningKey {
         val header = jwt.header
-        val kid: String? = header.keyID
-        val x5c: List<Base64>? = header.x509CertChain
-
-        return when {
-            kid != null && x5c.isNullOrEmpty() -> {
-                val didUrl = Uri.parse(kid)
-                val jwk = resolveDidUrl(didUrl)
-                WalletProviderSigningKey.DIDUrl(jwk, didUrl)
-            }
-
-            kid == null && !x5c.isNullOrEmpty() -> {
-                val chain = X509CertChainUtils.parse(x5c).toNonEmptyListOrNull()
-                requireNotNull(chain) { "x5c chain cannot be empty" }
-                val jwk = JWK.parse(chain.head)
-                WalletProviderSigningKey.X5C(jwk, chain)
-            }
-
-            else -> {
-                raise("Invalid Key attestation : No signing key found in one of 'kid' or 'x5c'. 'trust_chain not yet supported'")
-            }
-        }
+        val chain =
+            ensureNotNull(header.x509CertChain?.toNonEmptyListOrNull()) {
+                "Invalid Key attestation: x5c chain cannot be empty"
+            }.map { X509CertUtils.parseWithException(it.decode()) }
+        val jwk = JWK.parse(chain.head)
+        return WalletProviderSigningKey(jwk, chain)
     }
 
     private fun KeyAttestationJWT.verifySignature(
@@ -190,6 +175,19 @@ class VerifyKeyAttestation(
         }
         claims.attestedKeys
     }
+
+    context(_: Raise<String>)
+    private suspend fun KeyStorageStatus.ensureIsValid() {
+        val keyStorageStatus =
+            withError({ error: GetStatusListTokenStatus.Error ->
+                "Unable to verify Key Storage Status: ${error.value.message}"
+            }) {
+                getStatusListTokenStatus(status.statusList, VerificationContext.WalletOrKeyStorageStatus)
+            }
+        ensure(StatusListTokenStatus.VALID == keyStorageStatus) {
+            "Key Storage Status is not valid"
+        }
+    }
 }
 
 context(_: Raise<String>)
@@ -222,16 +220,7 @@ private fun JWK.ensureIsPublicAsymmetricKey(): AsymmetricJWK {
     return this
 }
 
-private sealed interface WalletProviderSigningKey {
-    val key: JWK
-
-    data class DIDUrl(
-        override val key: JWK,
-        val didUrl: Uri,
-    ) : WalletProviderSigningKey
-
-    data class X5C(
-        override val key: JWK,
-        val x5c: NonEmptyList<X509Certificate>,
-    ) : WalletProviderSigningKey
-}
+private data class WalletProviderSigningKey(
+    val key: JWK,
+    val x5c: NonEmptyList<X509Certificate>,
+)

@@ -114,6 +114,7 @@ internal class AppBeans :
                 httpClient,
                 clock = bean(),
                 allowedClockSkew = 5.seconds,
+                bean(),
             )
         }
         registerBean {
@@ -242,7 +243,13 @@ internal class AppBeans :
                     bean(),
                     env,
                     credentialIssuerId = issuerPublicUrl,
-                    validateProof = validateProof(issuerPublicUrl, bean(), bean()),
+                    validateProof =
+                        validateProof(
+                            issuerPublicUrl,
+                            bean(),
+                            bean(),
+                            bean(),
+                        ),
                     storeIssuedCredential = bean(),
                     allocateStatus = bean(),
                     generateNotificationId = bean(),
@@ -339,6 +346,8 @@ internal class AppBeans :
             val preferredClientStatusPeriod =
                 bean<IssuerMetadataProperties>().preferredClientStatusPeriod.toKotlinDuration()
 
+            val registrationCertificate = Wrprc.tryParse(env.getRequiredProperty("issuer.wrprc"))
+
             CredentialIssuerMetaData(
                 id = issuerPublicUrl,
                 credentialEndPoint = issuerPublicUrl.appendPath(WalletApi.CREDENTIAL_ENDPOINT),
@@ -361,6 +370,7 @@ internal class AppBeans :
                             )
                         },
                 preferredClientStatusPeriod = PreferredClientStatusPeriod(preferredClientStatusPeriod),
+                registrationCertificate = registrationCertificate,
             )
         }
 
@@ -375,6 +385,7 @@ internal class AppBeans :
                 credentialIssuerMetadata = bean(),
                 encryptCredentialResponse = bean(),
                 clock = bean(),
+                getStatusListTokenStatus = bean(),
             )
         }
         registerBean {

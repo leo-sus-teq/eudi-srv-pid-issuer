@@ -19,6 +19,7 @@ import arrow.core.NonEmptySet
 import arrow.core.nonEmptyListOf
 import arrow.core.nonEmptySetOf
 import arrow.core.raise.Raise
+import arrow.core.raise.context.raise
 import com.eygraber.uri.Uri
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.jwk.Curve
@@ -29,8 +30,11 @@ import eu.europa.ec.eudi.pidissuer.adapter.out.attestation.pid.PidMsoMdocV1Crede
 import eu.europa.ec.eudi.pidissuer.adapter.out.attestation.pid.pidMsoMdocV1
 import eu.europa.ec.eudi.pidissuer.domain.*
 import eu.europa.ec.eudi.pidissuer.jwtProof
+import eu.europa.ec.eudi.pidissuer.loadResource
 import eu.europa.ec.eudi.pidissuer.port.out.attestation.AttestationIssuer
 import eu.europa.ec.eudi.pidissuer.port.out.jose.EncryptCredentialResponse
+import eu.europa.ec.eudi.pidissuer.port.out.status.GetStatusListTokenStatus
+import eu.europa.ec.eudi.pidissuer.port.out.status.StatusListTokenStatus
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.test.Test
@@ -64,6 +68,11 @@ class IssueCredentialTest {
                 CredentialResponse.Issued(nonEmptyListOf(JsonPrimitive("test-credential")))
         }
 
+    private val registrationCertificate =
+        loadResource(
+            "/eu/europa/ec/eudi/pidissuer/adapter/out/jose/x5c/registration-certificate.jwt",
+        ).readText().trim()
+
     private val metaData =
         CredentialIssuerMetaData(
             id = HttpsUrl.unsafe("https://issuer.example.com"),
@@ -74,6 +83,7 @@ class IssueCredentialTest {
             credentialResponseEncryption = CredentialResponseEncryption.NotSupported,
             attestationIssuers = nonEmptyListOf(attestationIssuer),
             preferredClientStatusPeriod = PreferredClientStatusPeriod(400.days),
+            registrationCertificate = Wrprc.tryParse(registrationCertificate),
         )
 
     private val encryptCredentialResponse =
@@ -81,11 +91,16 @@ class IssueCredentialTest {
             IssueCredentialResponse.EncryptedJwtIssued("encrypted-jwt")
         }
 
-    private val issueCredential =
+    private val issueCredential = issueCredential()
+
+    private fun issueCredential(
+        getStatusListTokenStatus: GetStatusListTokenStatus = GetStatusListTokenStatus { _, _ -> StatusListTokenStatus.VALID },
+    ): IssueCredential =
         IssueCredential(
             credentialIssuerMetadata = metaData,
             encryptCredentialResponse = encryptCredentialResponse,
             clock = clock,
+            getStatusListTokenStatus = getStatusListTokenStatus,
         )
 
     private fun authorizationContext(
@@ -194,6 +209,54 @@ class IssueCredentialTest {
                 authorizationContext(
                     clientStatusExpiresAt = clock.now() + 10.days,
                 )
+            val request =
+                CredentialRequestTO(
+                    credentialConfigurationId = PidMsoMdocV1CredentialConfigurationId.value,
+                    proofs =
+                        CredentialRequestTO.ProofsTO(
+                            jwtProofs = listOf(jwtProofString()),
+                        ),
+                )
+
+            val result = issueCredential.fromPlainRequest(authContext, request)
+
+            val failed = assertIs<IssueCredentialResponse.FailedTO>(result)
+            assertEquals(CredentialErrorTypeTo.CREDENTIAL_REQUEST_DENIED, failed.type)
+        }
+
+    @Test
+    fun `fails when client status is not valid`() =
+        runTest {
+            val issueCredential =
+                issueCredential(
+                    getStatusListTokenStatus = { _, _ -> StatusListTokenStatus.INVALID },
+                )
+            val authContext = authorizationContext()
+            val request =
+                CredentialRequestTO(
+                    credentialConfigurationId = PidMsoMdocV1CredentialConfigurationId.value,
+                    proofs =
+                        CredentialRequestTO.ProofsTO(
+                            jwtProofs = listOf(jwtProofString()),
+                        ),
+                )
+
+            val result = issueCredential.fromPlainRequest(authContext, request)
+
+            val failed = assertIs<IssueCredentialResponse.FailedTO>(result)
+            assertEquals(CredentialErrorTypeTo.CREDENTIAL_REQUEST_DENIED, failed.type)
+        }
+
+    @Test
+    fun `fails when client status cannot be verified`() =
+        runTest {
+            val issueCredential =
+                issueCredential(
+                    getStatusListTokenStatus = { _, _ ->
+                        raise(GetStatusListTokenStatus.Error(RuntimeException("status list could not be retrieved")))
+                    },
+                )
+            val authContext = authorizationContext()
             val request =
                 CredentialRequestTO(
                     credentialConfigurationId = PidMsoMdocV1CredentialConfigurationId.value,

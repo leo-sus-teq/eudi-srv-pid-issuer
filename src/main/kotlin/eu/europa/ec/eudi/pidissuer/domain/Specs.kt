@@ -83,4 +83,18 @@ object RFC7519 {
  */
 object ETSI119472Part3 {
     const val KEY_ATTESTATION_JWT_PROOF_SIGNING_KEY_INDEX: Int = 0
+
+    const val ISSUER_INFO: String = "issuer_info"
+    const val ISSUER_INFO_FORMAT: String = "format"
+    const val ISSUER_INFO_DATA: String = "data"
+    const val ISSUER_INFO_FORMAT_REGISTRATION_CERT: String = "registration_cert"
+}
+
+/**
+ * [Electronic Signatures and Trust Infrastructures (ESI);
+ * Relying party attributes supporting EUDI Wallet user's authorization decisions](https://www.etsi.org/deliver/etsi_ts/119400_119499/119475/01.02.01_60/ts_119475v010201p.pdf)
+ */
+object ETSI119475 {
+    // JWT Type
+    const val WALLET_RELYING_PARTY_REGISTRATION_CERTIFICATE_TYPE = "rc-wrp+jwt"
 }

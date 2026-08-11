@@ -16,8 +16,6 @@
 package eu.europa.ec.eudi.pidissuer.port.input
 
 import arrow.core.NonEmptySet
-import arrow.core.raise.Raise
-import arrow.core.raise.context.ensure
 import com.nimbusds.oauth2.sdk.token.DPoPAccessToken
 import eu.europa.ec.eudi.pidissuer.domain.ClientStatus
 import eu.europa.ec.eudi.pidissuer.domain.CredentialConfigurationId
