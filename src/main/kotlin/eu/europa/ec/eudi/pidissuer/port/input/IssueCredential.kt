@@ -543,11 +543,18 @@ context(
     getStatusListTokenStatus: GetStatusListTokenStatus,
 )
 private suspend fun AuthorizationContext.checkClientStatusIsValid() {
+    val statusListToken = clientStatus.status.statusList
+    // The pre-authorized_code (demo/auto-approve) grant has no real Wallet Unit Attestation to
+    // check a status for, so IssuePreAuthorizedCodeAccessToken stamps this sentinel instead of a
+    // real status-list URI - see NoClientStatus. It's never meant to be dereferenced over the
+    // network (it isn't even an http(s) URI), so there's nothing to verify: treat it as valid.
+    if (statusListToken.statusList == NoClientStatus) return
+
     val status =
         withError({ error: GetStatusListTokenStatus.Error ->
             InvalidClientStatus("Unable to verify Client Status", error.value)
         }) {
-            getStatusListTokenStatus(clientStatus.status.statusList, VerificationContext.WalletOrKeyStorageStatus)
+            getStatusListTokenStatus(statusListToken, VerificationContext.WalletOrKeyStorageStatus)
         }
     ensure(StatusListTokenStatus.VALID == status) {
         InvalidClientStatus("Client Status is not valid")

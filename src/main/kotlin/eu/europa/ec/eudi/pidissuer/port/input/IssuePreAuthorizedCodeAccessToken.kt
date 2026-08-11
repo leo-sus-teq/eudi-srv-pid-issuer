@@ -18,10 +18,10 @@ package eu.europa.ec.eudi.pidissuer.port.input
 import arrow.core.raise.Raise
 import arrow.core.raise.context.ensure
 import arrow.core.raise.context.raise
-import com.eygraber.uri.Uri
 import com.nimbusds.oauth2.sdk.dpop.JWKThumbprintConfirmation
 import eu.europa.ec.eudi.pidissuer.domain.ClientStatus
 import eu.europa.ec.eudi.pidissuer.domain.CredentialIssuerMetaData
+import eu.europa.ec.eudi.pidissuer.domain.NoClientStatus
 import eu.europa.ec.eudi.pidissuer.domain.PreAuthorizedCode
 import eu.europa.ec.eudi.pidissuer.domain.StatusClaim
 import eu.europa.ec.eudi.pidissuer.domain.StatusListToken
@@ -75,7 +75,7 @@ class IssuePreAuthorizedCodeAccessToken(
 
         val clientStatus =
             ClientStatus(
-                status = StatusClaim(StatusListToken(PLACEHOLDER_STATUS_LIST_URI, index = 0u)),
+                status = StatusClaim(StatusListToken(NoClientStatus, index = 0u)),
                 expiresAt = now + credentialIssuerMetadata.preferredClientStatusPeriod.value + 1.days,
             )
         val accessToken =
@@ -94,6 +94,5 @@ class IssuePreAuthorizedCodeAccessToken(
 
     companion object {
         const val GRANT_TYPE = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
-        private val PLACEHOLDER_STATUS_LIST_URI = Uri.parse("urn:eudi:pid-issuer:pre-authorized-code:no-status")
     }
 }

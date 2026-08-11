@@ -15,12 +15,22 @@
  */
 package eu.europa.ec.eudi.pidissuer.domain
 
+import com.eygraber.uri.Uri
 import eu.europa.ec.eudi.pidissuer.adapter.out.json.InstantEpochSecondsSerializer
 import eu.europa.ec.eudi.sdjwt.RFC7519
 import kotlinx.serialization.Required
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
+
+/**
+ * Sentinel status-list URI used when there is no real Wallet Unit Attestation to check a
+ * status for - currently only the pre-authorized_code (demo/auto-approve) grant, see
+ * IssuePreAuthorizedCodeAccessToken. Never meant to be dereferenced over the network; callers
+ * that verify a [StatusListToken] (e.g. IssueCredential.checkClientStatusIsValid) must recognize
+ * this value and treat it as trivially valid instead of attempting the check.
+ */
+val NoClientStatus: Uri = Uri.parse("urn:eudi:pid-issuer:pre-authorized-code:no-status")
 
 @Serializable
 data class ClientStatus(

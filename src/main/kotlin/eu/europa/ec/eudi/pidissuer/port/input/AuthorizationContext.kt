@@ -19,11 +19,8 @@ import arrow.core.NonEmptySet
 import com.nimbusds.oauth2.sdk.token.DPoPAccessToken
 import eu.europa.ec.eudi.pidissuer.domain.ClientStatus
 import eu.europa.ec.eudi.pidissuer.domain.CredentialConfigurationId
-import eu.europa.ec.eudi.pidissuer.domain.CredentialIssuerMetaData
 import eu.europa.ec.eudi.pidissuer.domain.Scope
-import eu.europa.ec.eudi.pidissuer.port.input.IssueCredentialError.InvalidClientStatusExpiration
 import kotlinx.serialization.json.JsonObject
-import kotlin.time.Clock
 
 typealias Username = String
 typealias ClientId = String
@@ -41,15 +38,3 @@ data class AuthorizationContext(
      */
     val customData: Map<CredentialConfigurationId, JsonObject> = emptyMap(),
 )
-
-context(
-    _: Raise<InvalidClientStatusExpiration>,
-    metaData: CredentialIssuerMetaData,
-    clock: Clock,
-)
-fun AuthorizationContext.checkClientStatusExpiration() {
-    val preferredClientStatusPeriod = metaData.preferredClientStatusPeriod.value
-    ensure((clientStatus.expiresAt - clock.now()) >= preferredClientStatusPeriod) {
-        InvalidClientStatusExpiration("Client Status expires before preferred client status period")
-    }
-}
