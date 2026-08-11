@@ -39,3 +39,18 @@ out/
 
 ### Other ###
 application-prod.properties
+
+### Demo-only secrets & generated certs/keystores ###
+# Self-signed dev TLS certs (key+cert+bundle, regenerated together) and
+# Java keystores - all regenerable per-environment, never meant to be
+# shared between machines. Never committed even though a working demo
+# needs them to exist locally - see the top-level demo repo's README for
+# how they get (re)generated on first run.
+docker-compose/haproxy/certs/*
+docker-compose/keycloak/certs/*
+docker-compose/status-list/certs/*
+docker-compose/pid-issuer/issuer-keys.jks
+src/main/resources/issuer-keys.jks
+!docker-compose/haproxy/certs/.gitkeep
+!docker-compose/keycloak/certs/.gitkeep
+!docker-compose/status-list/certs/.gitkeep

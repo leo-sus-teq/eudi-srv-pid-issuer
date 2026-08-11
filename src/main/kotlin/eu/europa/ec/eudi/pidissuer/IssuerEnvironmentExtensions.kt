@@ -26,17 +26,22 @@ import com.nimbusds.jose.util.Base64
 import eu.europa.ec.eudi.pidissuer.adapter.input.web.security.DPoPConfigurationProperties
 import eu.europa.ec.eudi.pidissuer.adapter.out.IssuerSigningKey
 import eu.europa.ec.eudi.pidissuer.adapter.out.attestation.IssueMdoc
+import eu.europa.ec.eudi.pidissuer.adapter.out.attestation.arbeitsvertrag.*
+import eu.europa.ec.eudi.pidissuer.adapter.out.attestation.ehic.IssueEhic
 import eu.europa.ec.eudi.pidissuer.adapter.out.attestation.learningcredential.IssueLearningCredential
 import eu.europa.ec.eudi.pidissuer.adapter.out.attestation.mdl.IssueMobileDrivingLicence
 import eu.europa.ec.eudi.pidissuer.adapter.out.attestation.mdl.MobileDrivingLicence
 import eu.europa.ec.eudi.pidissuer.adapter.out.attestation.mdl.RandomMobileDrivingLicence
 import eu.europa.ec.eudi.pidissuer.adapter.out.attestation.pid.*
+import eu.europa.ec.eudi.pidissuer.adapter.out.attestation.residencepermit.IssueResidencePermit
+import eu.europa.ec.eudi.pidissuer.adapter.out.attestation.schufa.*
 import eu.europa.ec.eudi.pidissuer.adapter.out.format.sdjwtvc.SdJwtVcSerialization
 import eu.europa.ec.eudi.pidissuer.adapter.out.jose.AccessCertificate
 import eu.europa.ec.eudi.pidissuer.adapter.out.jose.supportedEncryptionMethods
 import eu.europa.ec.eudi.pidissuer.adapter.out.jose.supportedJWEAlgorithms
 import eu.europa.ec.eudi.pidissuer.adapter.out.nonce.NonceEncryptionKey
 import eu.europa.ec.eudi.pidissuer.adapter.out.proof.ValidateAttestationProof
+import eu.europa.ec.eudi.pidissuer.adapter.out.proof.ValidateJwtProofNoAttestation
 import eu.europa.ec.eudi.pidissuer.adapter.out.proof.ValidateJwtProofWithKeyAttestation
 import eu.europa.ec.eudi.pidissuer.adapter.out.proof.VerifyKeyAttestation
 import eu.europa.ec.eudi.pidissuer.adapter.out.trust.Ignored
@@ -435,6 +440,8 @@ internal object IssuerFactory {
                 JWSAlgorithm::parse,
             )
         val pidMsoMdocReusePolicy = credentialReusePolicy(ctx.env, "issuer.pid.mso_mdoc")
+        val requireKeyAttestation =
+            ctx.env.getBoolean("issuer.pid.mso_mdoc.deviceBinding.requireKeyAttestation") ?: true
 
         return IssueMsoMdocPid(
             clock = ctx.clock,
@@ -444,6 +451,12 @@ internal object IssuerFactory {
                 DeviceBinding.Required.ts3(
                     proofsSupportedSigningAlgorithms,
                     PreferredKeyStorageStatusPeriod(duration),
+                    proofType =
+                        if (requireKeyAttestation) {
+                            DeviceBinding.Required.ProofOption.Either
+                        } else {
+                            DeviceBinding.Required.ProofOption.ProofJwtNoAttestation
+                        },
                 ),
             credentialReusePolicy = pidMsoMdocReusePolicy,
             validity = duration,
@@ -470,6 +483,8 @@ internal object IssuerFactory {
             ctx.env.getProperty<HashAlgorithm>("issuer.pid.sd_jwt_vc.digests.hashAlgorithm") ?: HashAlgorithm.SHA_256
         val proofsSupportedSigningAlgorithms =
             ctx.env.readNonEmptySet("issuer.pid.sd_jwt_vc.proofs.supportedSigningAlgorithms", JWSAlgorithm::parse)
+        val requireKeyAttestation =
+            ctx.env.getBoolean("issuer.pid.sd_jwt_vc.deviceBinding.requireKeyAttestation") ?: true
 
         return IssueSdJwtVcPid(
             clock = ctx.clock,
@@ -481,6 +496,12 @@ internal object IssuerFactory {
                 DeviceBinding.Required.ts3(
                     proofsSupportedSigningAlgorithms,
                     PreferredKeyStorageStatusPeriod(expiresIn),
+                    proofType =
+                        if (requireKeyAttestation) {
+                            DeviceBinding.Required.ProofOption.Either
+                        } else {
+                            DeviceBinding.Required.ProofOption.ProofJwtNoAttestation
+                        },
                 ),
             credentialReusePolicy = pidSdJwtVcReusePolicy,
             validity = expiresIn,
@@ -515,6 +536,8 @@ internal object IssuerFactory {
 
         val notificationsEnabled =
             ctx.env.getProperty<Boolean>("issuer.learningCredential.notifications.enabled") ?: true
+        val requireKeyAttestation =
+            ctx.env.getBoolean("issuer.learningCredential.deviceBinding.requireKeyAttestation") ?: true
 
         return IssueLearningCredential(
             sdJwtVcSerialization = SdJwtVcSerialization.Compact,
@@ -530,12 +553,244 @@ internal object IssuerFactory {
                 DeviceBinding.Required.ts3(
                     proofsSupportedSigningAlgorithms,
                     PreferredKeyStorageStatusPeriod(validity),
+                    proofType =
+                        if (requireKeyAttestation) {
+                            DeviceBinding.Required.ProofOption.Either
+                        } else {
+                            DeviceBinding.Required.ProofOption.ProofJwtNoAttestation
+                        },
                 ),
             credentialReusePolicy = learningCredentialReusePolicy,
             validity = validity,
             validateProof = ctx.validateProof,
             generateNotificationId = ctx.generateNotificationId.takeIf { notificationsEnabled },
             storeIssuedCredential = ctx.storeIssuedCredential,
+        )
+    }
+
+    context(ctx: Ctx)
+    fun ehicInSdJwtVc(issuerSigningKey: IssuerSigningKey): IssueEhic {
+        val proofsSupportedSigningAlgorithms =
+            ctx.env.readNonEmptySet("issuer.ehic.proofs.supportedSigningAlgorithms", JWSAlgorithm::parse)
+        val ehicReusePolicy = credentialReusePolicy(ctx.env, "issuer.ehic")
+        val validity = Duration.parse(ctx.env.getProperty("issuer.ehic.validity", "P31D"))
+        val digestHashAlgorithm =
+            ctx.env.getProperty<HashAlgorithm>("issuer.ehic.sdJwtVc.encoder.digests.hashAlgorithm") ?: HashAlgorithm.SHA_256
+        val notificationsEnabled = ctx.env.getProperty<Boolean>("issuer.ehic.notifications.enabled") ?: true
+        val requireKeyAttestation =
+            ctx.env.getBoolean("issuer.ehic.deviceBinding.requireKeyAttestation") ?: true
+
+        return IssueEhic(
+            sdJwtVcSerialization = SdJwtVcSerialization.Compact,
+            clock = ctx.clock,
+            getAttestationAttributes = IssueEhic.demoAttestationAttributes(ctx.clock),
+            issuerSigningKey = issuerSigningKey,
+            digestsHashAlgorithm = digestHashAlgorithm,
+            deviceBinding =
+                DeviceBinding.Required.ts3(
+                    proofsSupportedSigningAlgorithms,
+                    PreferredKeyStorageStatusPeriod(validity),
+                    proofType =
+                        if (requireKeyAttestation) {
+                            DeviceBinding.Required.ProofOption.Either
+                        } else {
+                            DeviceBinding.Required.ProofOption.ProofJwtNoAttestation
+                        },
+                ),
+            credentialReusePolicy = ehicReusePolicy,
+            validity = validity,
+            validateProof = ctx.validateProof,
+            generateNotificationId = ctx.generateNotificationId.takeIf { notificationsEnabled },
+            storeIssuedCredential = ctx.storeIssuedCredential,
+        )
+    }
+
+    context(ctx: Ctx)
+    fun residencePermitInSdJwtVc(issuerSigningKey: IssuerSigningKey): IssueResidencePermit {
+        val proofsSupportedSigningAlgorithms =
+            ctx.env.readNonEmptySet("issuer.residencePermit.proofs.supportedSigningAlgorithms", JWSAlgorithm::parse)
+        val residencePermitReusePolicy = credentialReusePolicy(ctx.env, "issuer.residencePermit")
+        val validity = Duration.parse(ctx.env.getProperty("issuer.residencePermit.validity", "P31D"))
+        val digestHashAlgorithm =
+            ctx.env.getProperty<HashAlgorithm>(
+                "issuer.residencePermit.sdJwtVc.encoder.digests.hashAlgorithm",
+            ) ?: HashAlgorithm.SHA_256
+        val notificationsEnabled = ctx.env.getProperty<Boolean>("issuer.residencePermit.notifications.enabled") ?: true
+        val requireKeyAttestation =
+            ctx.env.getBoolean("issuer.residencePermit.deviceBinding.requireKeyAttestation") ?: true
+
+        return IssueResidencePermit(
+            sdJwtVcSerialization = SdJwtVcSerialization.Compact,
+            clock = ctx.clock,
+            getAttestationAttributes = IssueResidencePermit.demoAttestationAttributes(ctx.clock),
+            issuerSigningKey = issuerSigningKey,
+            digestsHashAlgorithm = digestHashAlgorithm,
+            deviceBinding =
+                DeviceBinding.Required.ts3(
+                    proofsSupportedSigningAlgorithms,
+                    PreferredKeyStorageStatusPeriod(validity),
+                    proofType =
+                        if (requireKeyAttestation) {
+                            DeviceBinding.Required.ProofOption.Either
+                        } else {
+                            DeviceBinding.Required.ProofOption.ProofJwtNoAttestation
+                        },
+                ),
+            credentialReusePolicy = residencePermitReusePolicy,
+            validity = validity,
+            validateProof = ctx.validateProof,
+            generateNotificationId = ctx.generateNotificationId.takeIf { notificationsEnabled },
+            storeIssuedCredential = ctx.storeIssuedCredential,
+        )
+    }
+
+    context(ctx: Ctx)
+    fun schufaInSdJwtVc(issuerSigningKey: IssuerSigningKey): IssueSdJwtVcSchufa {
+        val proofsSupportedSigningAlgorithms =
+            ctx.env.readNonEmptySet("issuer.schufa.sd_jwt_vc.proofs.supportedSigningAlgorithms", JWSAlgorithm::parse)
+        val schufaReusePolicy = credentialReusePolicy(ctx.env, "issuer.schufa.sd_jwt_vc")
+        val validity = Duration.parse(ctx.env.getProperty("issuer.schufa.sd_jwt_vc.validity", "P31D"))
+        val digestHashAlgorithm =
+            ctx.env.getProperty<HashAlgorithm>(
+                "issuer.schufa.sd_jwt_vc.encoder.digests.hashAlgorithm",
+            ) ?: HashAlgorithm.SHA_256
+        val notificationsEnabled = ctx.env.getProperty<Boolean>("issuer.schufa.sd_jwt_vc.notifications.enabled") ?: true
+        val requireKeyAttestation =
+            ctx.env.getBoolean("issuer.schufa.sd_jwt_vc.deviceBinding.requireKeyAttestation") ?: true
+
+        return IssueSdJwtVcSchufa(
+            sdJwtVcSerialization = SdJwtVcSerialization.Compact,
+            clock = ctx.clock,
+            getAttestationAttributes = IssueSdJwtVcSchufa.demoAttestationAttributes(ctx.clock),
+            issuerSigningKey = issuerSigningKey,
+            digestsHashAlgorithm = digestHashAlgorithm,
+            deviceBinding =
+                DeviceBinding.Required.ts3(
+                    proofsSupportedSigningAlgorithms,
+                    PreferredKeyStorageStatusPeriod(validity),
+                    proofType =
+                        if (requireKeyAttestation) {
+                            DeviceBinding.Required.ProofOption.Either
+                        } else {
+                            DeviceBinding.Required.ProofOption.ProofJwtNoAttestation
+                        },
+                ),
+            credentialReusePolicy = schufaReusePolicy,
+            validity = validity,
+            validateProof = ctx.validateProof,
+            generateNotificationId = ctx.generateNotificationId.takeIf { notificationsEnabled },
+            storeIssuedCredential = ctx.storeIssuedCredential,
+        )
+    }
+
+    context(ctx: Ctx)
+    fun schufaInMdoc(issuerSigningKey: IssuerSigningKey): IssueMdoc<Schufa> {
+        val validity = ctx.env.duration("issuer.schufa.mso_mdoc.encoder.duration") ?: 31.days
+        val proofsSupportedSigningAlgorithms =
+            ctx.env.readNonEmptySet("issuer.schufa.mso_mdoc.proofs.supportedSigningAlgorithms", JWSAlgorithm::parse)
+        val schufaMsoMdocReusePolicy = credentialReusePolicy(ctx.env, "issuer.schufa.mso_mdoc")
+        val requireKeyAttestation =
+            ctx.env.getBoolean("issuer.schufa.mso_mdoc.deviceBinding.requireKeyAttestation") ?: true
+
+        return IssueMsoMdocSchufa(
+            clock = ctx.clock,
+            getAttestationAttributes = IssueSdJwtVcSchufa.demoAttestationAttributes(ctx.clock),
+            issuerSigningKey = issuerSigningKey,
+            deviceBinding =
+                DeviceBinding.Required.ts3(
+                    proofsSupportedSigningAlgorithms,
+                    PreferredKeyStorageStatusPeriod(validity),
+                    proofType =
+                        if (requireKeyAttestation) {
+                            DeviceBinding.Required.ProofOption.Either
+                        } else {
+                            DeviceBinding.Required.ProofOption.ProofJwtNoAttestation
+                        },
+                ),
+            credentialReusePolicy = schufaMsoMdocReusePolicy,
+            validity = validity,
+            validateProof = ctx.validateProof,
+            generateNotificationId =
+                ctx.generateNotificationId.takeIf {
+                    ctx.env.getProperty<Boolean>("issuer.schufa.mso_mdoc.notifications.enabled") ?: true
+                },
+            storeIssuedCredential = ctx.storeIssuedCredential,
+            allocateStatus = ctx.allocateStatus,
+        )
+    }
+
+    context(ctx: Ctx)
+    fun arbeitsvertragInSdJwtVc(issuerSigningKey: IssuerSigningKey): IssueSdJwtVcArbeitsvertrag {
+        val proofsSupportedSigningAlgorithms =
+            ctx.env.readNonEmptySet("issuer.arbeitsvertrag.sd_jwt_vc.proofs.supportedSigningAlgorithms", JWSAlgorithm::parse)
+        val arbeitsvertragReusePolicy = credentialReusePolicy(ctx.env, "issuer.arbeitsvertrag.sd_jwt_vc")
+        val validity = Duration.parse(ctx.env.getProperty("issuer.arbeitsvertrag.sd_jwt_vc.validity", "P31D"))
+        val digestHashAlgorithm =
+            ctx.env.getProperty<HashAlgorithm>(
+                "issuer.arbeitsvertrag.sd_jwt_vc.encoder.digests.hashAlgorithm",
+            ) ?: HashAlgorithm.SHA_256
+        val notificationsEnabled = ctx.env.getProperty<Boolean>("issuer.arbeitsvertrag.sd_jwt_vc.notifications.enabled") ?: true
+        val requireKeyAttestation =
+            ctx.env.getBoolean("issuer.arbeitsvertrag.sd_jwt_vc.deviceBinding.requireKeyAttestation") ?: true
+
+        return IssueSdJwtVcArbeitsvertrag(
+            sdJwtVcSerialization = SdJwtVcSerialization.Compact,
+            clock = ctx.clock,
+            getAttestationAttributes = IssueSdJwtVcArbeitsvertrag.demoAttestationAttributes(),
+            issuerSigningKey = issuerSigningKey,
+            digestsHashAlgorithm = digestHashAlgorithm,
+            deviceBinding =
+                DeviceBinding.Required.ts3(
+                    proofsSupportedSigningAlgorithms,
+                    PreferredKeyStorageStatusPeriod(validity),
+                    proofType =
+                        if (requireKeyAttestation) {
+                            DeviceBinding.Required.ProofOption.Either
+                        } else {
+                            DeviceBinding.Required.ProofOption.ProofJwtNoAttestation
+                        },
+                ),
+            credentialReusePolicy = arbeitsvertragReusePolicy,
+            validity = validity,
+            validateProof = ctx.validateProof,
+            generateNotificationId = ctx.generateNotificationId.takeIf { notificationsEnabled },
+            storeIssuedCredential = ctx.storeIssuedCredential,
+        )
+    }
+
+    context(ctx: Ctx)
+    fun arbeitsvertragInMdoc(issuerSigningKey: IssuerSigningKey): IssueMdoc<Arbeitsvertrag> {
+        val validity = ctx.env.duration("issuer.arbeitsvertrag.mso_mdoc.encoder.duration") ?: 31.days
+        val proofsSupportedSigningAlgorithms =
+            ctx.env.readNonEmptySet("issuer.arbeitsvertrag.mso_mdoc.proofs.supportedSigningAlgorithms", JWSAlgorithm::parse)
+        val arbeitsvertragMsoMdocReusePolicy = credentialReusePolicy(ctx.env, "issuer.arbeitsvertrag.mso_mdoc")
+        val requireKeyAttestation =
+            ctx.env.getBoolean("issuer.arbeitsvertrag.mso_mdoc.deviceBinding.requireKeyAttestation") ?: true
+
+        return IssueMsoMdocArbeitsvertrag(
+            clock = ctx.clock,
+            getAttestationAttributes = IssueSdJwtVcArbeitsvertrag.demoAttestationAttributes(),
+            issuerSigningKey = issuerSigningKey,
+            deviceBinding =
+                DeviceBinding.Required.ts3(
+                    proofsSupportedSigningAlgorithms,
+                    PreferredKeyStorageStatusPeriod(validity),
+                    proofType =
+                        if (requireKeyAttestation) {
+                            DeviceBinding.Required.ProofOption.Either
+                        } else {
+                            DeviceBinding.Required.ProofOption.ProofJwtNoAttestation
+                        },
+                ),
+            credentialReusePolicy = arbeitsvertragMsoMdocReusePolicy,
+            validity = validity,
+            validateProof = ctx.validateProof,
+            generateNotificationId =
+                ctx.generateNotificationId.takeIf {
+                    ctx.env.getProperty<Boolean>("issuer.arbeitsvertrag.mso_mdoc.notifications.enabled") ?: true
+                },
+            storeIssuedCredential = ctx.storeIssuedCredential,
+            allocateStatus = ctx.allocateStatus,
         )
     }
 }
@@ -585,9 +840,11 @@ internal fun validateProof(
     val verifyKeyAttestation = VerifyKeyAttestation(isTrustedKeyAttestationIssuer = isTrustedKeyAttestationIssuer)
     val validateJwtProofWithKeyAttestation =
         ValidateJwtProofWithKeyAttestation(credentialIssuerId, verifyKeyAttestation)
+    val validateJwtProofNoAttestation = ValidateJwtProofNoAttestation(credentialIssuerId)
     val validateAttestationProof = ValidateAttestationProof(verifyKeyAttestation)
     return ValidateProof(
         validateJwtProofWithKeyAttestation,
+        validateJwtProofNoAttestation,
         validateAttestationProof,
         verifyNonce,
     )

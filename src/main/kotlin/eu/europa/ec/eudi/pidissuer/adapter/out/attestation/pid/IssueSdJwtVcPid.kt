@@ -88,7 +88,7 @@ class IssueSdJwtVcPid private constructor(
         val notBefore = nbf(issuedAt)
         val notificationId = generateNotificationId?.invoke()
         val clientStatus = authorizationContext.clientStatus.status.statusList
-        val keyStorageStatus = keyAttestation.keyStorageStatus.status.statusList
+        val keyStorageStatus = keyAttestation.keyStorageStatus?.status?.statusList
         val issuedCredentials =
             deviceKeys
                 .parMap(Dispatchers.Default, 4) { deviceKey ->

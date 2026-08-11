@@ -81,7 +81,11 @@ class ValidateJwtProofWithKeyAttestation(
                     "with value `${ETSI119472Part3.KEY_ATTESTATION_JWT_PROOF_SIGNING_KEY_INDEX}`"
             }
 
-            ensure(keyStorageStatus.exp >= at + proofType.keyAttestationRequirement.preferredKeyStorageStatusPeriod.value) {
+            val keyAttestationRequirement =
+                ensureNotNull(proofType.keyAttestationRequirement) {
+                    "This proof type does not require key attestation"
+                }
+            ensure(keyStorageStatus.exp >= at + keyAttestationRequirement.preferredKeyStorageStatusPeriod.value) {
                 "Key Storage Status expiration date does not meet the preferred key storage status period"
             }
 

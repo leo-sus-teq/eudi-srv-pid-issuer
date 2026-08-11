@@ -266,21 +266,23 @@ private fun ProofType.toJsonObject(): JsonObject =
         putJsonArray("proof_signing_alg_values_supported") {
             addAll(signingAlgorithmsSupported.map { it.name })
         }
-        putJsonObject("key_attestations_required") {
-            keyAttestationRequirement.keyStorage?.let { keyStorage ->
-                putJsonArray("key_storage") {
-                    addAll(keyStorage.map { it.value })
+        keyAttestationRequirement?.let { keyAttestationRequirement ->
+            putJsonObject("key_attestations_required") {
+                keyAttestationRequirement.keyStorage?.let { keyStorage ->
+                    putJsonArray("key_storage") {
+                        addAll(keyStorage.map { it.value })
+                    }
                 }
-            }
-            keyAttestationRequirement.userAuthentication?.let { userAuthentication ->
-                putJsonArray("user_authentication") {
-                    addAll(userAuthentication.map { it.value })
+                keyAttestationRequirement.userAuthentication?.let { userAuthentication ->
+                    putJsonArray("user_authentication") {
+                        addAll(userAuthentication.map { it.value })
+                    }
                 }
+                put(
+                    TS3.PREFERRED_KEY_STORAGE_STATUS_PERIOD,
+                    keyAttestationRequirement.preferredKeyStorageStatusPeriod.value.inWholeSeconds,
+                )
             }
-            put(
-                TS3.PREFERRED_KEY_STORAGE_STATUS_PERIOD,
-                keyAttestationRequirement.preferredKeyStorageStatusPeriod.value.inWholeSeconds,
-            )
         }
     }
 

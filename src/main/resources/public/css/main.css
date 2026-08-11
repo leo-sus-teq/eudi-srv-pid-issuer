@@ -1,6 +1,139 @@
-.eudiw-logo {
-    min-width: 150px;
-    min-height: 150px;
+/* Self-hosted (not loaded from fonts.googleapis.com): Spring Security's default
+   CSP here is `style-src 'self' 'unsafe-inline'` - no external hosts allowed -
+   so a <link> to Google Fonts is silently blocked by the browser. Same reason
+   the wallet/verifier apps self-host this too, for one consistent typeface
+   across all three regardless of each app's own CSP. Latin + Latin-ext only
+   (covers English/German/EU text; this is a demo, not a full i18n product). */
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    /* Absolute path, and must include /pid-issuer (SPRING_WEBFLUX_BASE_PATH):
+       CSS url() isn't rewritten by Thymeleaf like th:href is - unlike main.css's
+       own <link>, which gets the prefix added automatically by @{...}. */
+    src: url('/pid-issuer/public/fonts/inter-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url('/pid-issuer/public/fonts/inter-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+    --bg: #0f1220;
+    --card: #1a1e33;
+    --text: #e8eaf6;
+    --muted: #9aa0c3;
+    --border: #2a2f4a;
+    --accent: #006edf;
+    --accent-dark: #021529;
+    --danger: #ff6b6b;
+}
+
+/* Without this, a page shorter than the viewport (e.g. the narrow centered
+   .container on a tall window) left the default white canvas showing below
+   the actual content instead of the dark theme filling the whole screen -
+   matches how the verifier app forces the same via its html/body height
+   rules in styles.scss. */
+html {
+    min-height: 100%;
+}
+
+body {
+    min-height: 100vh;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+}
+
+/* Bottom-of-page spec compatibility note, present on every issuer page -
+   same placement/styling as the verifier app's own .compatibility-note in
+   wallet-layout.component.html/.scss, so the two apps read as one product. */
+.compatibility-note {
+    border-top: 1px solid var(--border);
+    margin-top: 2rem;
+    padding-top: 0.75rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.compatibility-note a {
+    font-weight: 600;
+}
+
+/* Bootstrap's plain .container grows to 960-1320px on a normal desktop
+   window; with .credential-card-grid's 1fr columns that stretched cards
+   into wide rectangles instead of the compact tiles the verifier app shows
+   (its own page is capped the same way, at the same width, for the same
+   card grid CSS - see eudi-web-verifier's home.component.scss). */
+.container {
+    max-width: 36em;
+}
+
+a {
+    color: var(--accent);
+}
+
+/* Persistent top bar, present on every page - same structure/behavior as
+   the verifier app's own <vc-wallet-layout-header>: a full-width divider +
+   shadow on the bar itself, with its content (.container) capped/centered
+   at the same width as the page body below it. Lives outside <main> so it
+   never scrolls out of place relative to the content it introduces. */
+.site-header {
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 16px rgba(0, 0, 0, 0.35);
+}
+
+.site-header .container {
+    display: flex;
+    align-items: center;
+    padding-top: 0.85rem;
+    padding-bottom: 0.85rem;
+}
+
+/* Set by the detection script in fragments/header.html when this page is
+   shown inside the demo dashboard's iframe (see ../../../../../dashboard/). */
+html.is-embedded .site-header {
+    display: none;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.brand-logo {
+    height: 40px;
+    width: auto;
+}
+
+/* Small distinguishing marker in the header: same shared brand palette as the
+   verifier/wallet apps, just a different tag per app so the demo's three
+   roles are unmistakable at a glance (see wallet-layout-header.component.scss
+   in eudi-web-verifier and views.py's page() in eudi_web_wallet). */
+.role-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #fff;
+    background: var(--accent);
+}
+
+.bg-secondary-subtle {
+    background-color: var(--card) !important;
+    border: 1px solid var(--border);
+    border-radius: 10px;
 }
 
 .qr-code {
@@ -8,8 +141,157 @@
     min-height: 300px;
     max-width: 300px;
     max-height: 300px;
+    background: #fff;
+    border-radius: 10px;
+    padding: 12px;
 }
 
 .credentials-offer-uri {
     word-break: break-all;
+    color: var(--text);
+    background: var(--accent-dark);
+    padding: 10px 14px;
+    border-radius: 8px;
+    display: inline-block;
+}
+
+.form-check-input:checked {
+    background-color: var(--accent);
+    border-color: var(--accent);
+}
+
+.form-control,
+.form-check-input {
+    background-color: #12162a;
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+
+.form-control:focus {
+    background-color: #12162a;
+    border-color: var(--accent);
+    color: var(--text);
+    box-shadow: 0 0 0 0.25rem rgba(0, 110, 223, 0.25);
+}
+
+.form-control::placeholder {
+    color: var(--muted);
+}
+
+.btn-primary {
+    background-color: var(--accent);
+    border-color: var(--accent);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: var(--accent-dark);
+    border-color: var(--accent-dark);
+}
+
+.btn-warning {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.btn-warning:hover,
+.btn-warning:focus {
+    background-color: var(--accent-dark);
+    border-color: var(--accent-dark);
+    color: #fff;
+}
+
+.table {
+    --bs-table-color: var(--text);
+    --bs-table-bg: transparent;
+    --bs-table-striped-bg: rgba(255, 255, 255, 0.03);
+    --bs-table-striped-color: var(--text);
+    --bs-table-hover-bg: rgba(0, 110, 223, 0.12);
+    --bs-table-hover-color: var(--text);
+    --bs-table-border-color: var(--border);
+}
+
+code {
+    color: var(--text);
+}
+
+.picker-hint {
+    color: var(--muted);
+    font-size: 1rem;
+    margin-bottom: 0;
+}
+
+/* One card per real-world credential (see generate-credentials-offer-form.js) -
+   the entire point of this redesign: picking a credential is "click a card",
+   not "find the right checkbox among sixteen". */
+.credential-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.credential-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background-color: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 12px;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 120ms ease-in-out, transform 120ms ease-in-out;
+}
+
+.credential-card:hover {
+    border-color: var(--accent);
+}
+
+.credential-card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.credential-card.selected {
+    border-color: var(--accent);
+    background-color: rgba(0, 110, 223, 0.14);
+    transform: translateY(-2px);
+}
+
+.credential-card-icon {
+    font-size: 1.75rem;
+    line-height: 1;
+}
+
+.quick-demo-mode-check {
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.quick-demo-mode-check .form-text {
+    color: var(--muted);
+}
+
+.advanced-section {
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px;
+}
+
+.advanced-section summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.advanced-section[open] summary {
+    margin-bottom: 0.75rem;
 }

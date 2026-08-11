@@ -70,7 +70,7 @@ sealed interface ProofType {
      */
     data class Jwt(
         val signingAlgorithmsSupported: NonEmptySet<JWSAlgorithm>,
-        val keyAttestationRequirement: KeyAttestationRequirement,
+        val keyAttestationRequirement: KeyAttestationRequirement?,
     ) : ProofType
 
     data class Attestation(
@@ -90,16 +90,26 @@ sealed interface DeviceBinding {
         enum class ProofOption {
             ProofJwtWithKeyAttestation,
             ProofKeyAttestation,
+
+            /**
+             * A plain JWT proof of possession is accepted with no key attestation requirement at all - the
+             * credential is bound to whatever public key the proof JWT itself embeds, with no assurance about
+             * where that key is stored.
+             */
+            ProofJwtNoAttestation,
             Either,
         }
 
         fun proofTypesSupported(): NonEmptySet<ProofType> {
             fun jwtWithKA() = ProofType.Jwt(algorithmsSupported, keyStorageRequirement)
 
+            fun jwtNoKA() = ProofType.Jwt(algorithmsSupported, null)
+
             fun attestation() = ProofType.Attestation(algorithmsSupported, keyStorageRequirement)
             return when (proofType) {
                 ProofOption.ProofJwtWithKeyAttestation -> nonEmptySetOf(jwtWithKA(), attestation())
                 ProofOption.ProofKeyAttestation -> nonEmptySetOf(attestation())
+                ProofOption.ProofJwtNoAttestation -> nonEmptySetOf(jwtNoKA())
                 ProofOption.Either -> nonEmptySetOf(jwtWithKA(), attestation())
             }
         }
@@ -110,6 +120,7 @@ sealed interface DeviceBinding {
             fun ts3(
                 algorithmsSupported: NonEmptySet<JWSAlgorithm> = AllowedAlgorithms,
                 preferredKeyStorageStatusPeriod: PreferredKeyStorageStatusPeriod,
+                proofType: ProofOption = ProofOption.Either,
             ): Required {
                 require(algorithmsSupported.all { it in AllowedAlgorithms }) {
                     "Only EC signing algorithms are supported."
@@ -117,7 +128,7 @@ sealed interface DeviceBinding {
                 return Required(
                     algorithmsSupported,
                     KeyAttestationRequirement.ts3(preferredKeyStorageStatusPeriod),
-                    ProofOption.Either,
+                    proofType,
                 )
             }
         }

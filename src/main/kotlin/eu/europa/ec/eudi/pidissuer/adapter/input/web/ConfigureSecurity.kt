@@ -25,12 +25,14 @@ import eu.europa.ec.eudi.pidissuer.duration
 import eu.europa.ec.eudi.pidissuer.log
 import eu.europa.ec.eudi.pidissuer.port.out.nonce.GenerateNonce
 import eu.europa.ec.eudi.pidissuer.port.out.nonce.VerifyNonce
+import eu.europa.ec.eudi.pidissuer.port.out.token.IntrospectSelfIssuedAccessToken
 import org.springframework.boot.security.oauth2.server.resource.autoconfigure.OAuth2ResourceServerProperties
 import org.springframework.core.env.Environment
 import org.springframework.http.HttpStatus
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder
 import org.springframework.security.config.web.server.ServerHttpSecurity
 import org.springframework.security.config.web.server.invoke
+import org.springframework.security.oauth2.server.resource.introspection.ReactiveOpaqueTokenIntrospector
 import org.springframework.security.oauth2.server.resource.introspection.SpringReactiveOpaqueTokenIntrospector
 import org.springframework.security.web.server.DelegatingServerAuthenticationEntryPoint
 import org.springframework.security.web.server.SecurityWebFilterChain
@@ -76,6 +78,16 @@ fun configureUiSecurity(
 
         // configure scp
         headers {
+            // X-Frame-Options only supports DENY/SAMEORIGIN (no equivalent
+            // of CSP's frame-ancestors origin allow-list, and ALLOW-FROM is
+            // long deprecated/unsupported) - disabled here so the
+            // frame-ancestors directive below is the one thing browsers
+            // actually enforce, instead of the header default (DENY)
+            // silently overriding it.
+            frameOptions {
+                disable()
+            }
+
             contentSecurityPolicy {
                 // policies
                 policyDirectives =
@@ -86,7 +98,11 @@ fun configureUiSecurity(
                         "img-src 'self' data:",
                         "object-src 'none'",
                         "base-uri 'self'",
-                        "frame-ancestors 'none'",
+                        // 'self' plus this demo's own combined-view dashboard
+                        // (see ../../../../../../../dashboard/) - not a wide-open
+                        // allow-list, just the one legitimate framer this demo
+                        // actually has.
+                        "frame-ancestors 'self' https://demo.localhost",
                     ).joinToString(separator = "; ")
 
                 // set enforcing mode
@@ -105,6 +121,7 @@ fun configureApiSecurity(
     webClient: WebClient,
     verifyNonce: VerifyNonce,
     generateNonce: GenerateNonce,
+    introspectSelfIssuedAccessToken: IntrospectSelfIssuedAccessToken,
 ): SecurityWebFilterChain {
     fun Scope.springConvention() = "SCOPE_$value"
     val scopes =
@@ -123,7 +140,9 @@ fun configureApiSecurity(
             authorize(MetaDataApi.PUBLIC_KEYS, permitAll)
             authorize(MetaDataApi.TYPE_METADATA, permitAll)
             authorize(MetaDataApi.WELL_KNOWN_PROTECTED_RESOURCE_METADATA, permitAll)
+            authorize(MetaDataApi.WELL_KNOWN_OAUTH_AUTHORIZATION_SERVER, permitAll)
             authorize(IssuerApi.CREATE_CREDENTIALS_OFFER, permitAll)
+            authorize(TokenApi.TOKEN_ENDPOINT, permitAll)
             authorize(anyExchange, denyAll)
         }
 
@@ -148,7 +167,9 @@ fun configureApiSecurity(
         val entryPoint = DPoPTokenServerAuthenticationEntryPoint(dPoPConfigurationProperties.realm, dpopNonce, clock)
         val tokenConverter = ServerDPoPAuthenticationTokenAuthenticationConverter()
 
-        val introspector = createTokenIntrospector(oAuth2ResourceServerProperties, webClient)
+        val keycloakIntrospector = createTokenIntrospector(oAuth2ResourceServerProperties, webClient)
+        val introspector =
+            CompositeReactiveOpaqueTokenIntrospector(introspectSelfIssuedAccessToken, keycloakIntrospector, clock)
         val dpopFilter =
             createDpopFilter(clock, dPoPConfigurationProperties, introspector, dpopNonce, tokenConverter, entryPoint)
         http.addFilterAfter(dpopFilter, SecurityWebFiltersOrder.AUTHENTICATION)
@@ -199,7 +220,7 @@ fun configureApiSecurity(
 private fun createDpopFilter(
     clock: Clock,
     dPoPConfigurationProperties: DPoPConfigurationProperties,
-    introspector: SpringReactiveOpaqueTokenIntrospector,
+    introspector: ReactiveOpaqueTokenIntrospector,
     dpopNonce: DPoPNoncePolicy,
     tokenConverter: ServerDPoPAuthenticationTokenAuthenticationConverter,
     entryPoint: DPoPTokenServerAuthenticationEntryPoint,

@@ -60,6 +60,11 @@ value class Scope(
 )
 
 @JvmInline
+value class PreAuthorizedCode(
+    val value: String,
+)
+
+@JvmInline
 value class Format(
     val value: String,
 )

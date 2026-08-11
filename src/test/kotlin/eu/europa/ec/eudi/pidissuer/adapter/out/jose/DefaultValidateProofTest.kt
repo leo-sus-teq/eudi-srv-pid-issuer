@@ -24,6 +24,7 @@ import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.gen.ECKeyGenerator
 import eu.europa.ec.eudi.pidissuer.adapter.out.attestation.pid.pidMsoMdocV1
 import eu.europa.ec.eudi.pidissuer.adapter.out.proof.ValidateAttestationProof
+import eu.europa.ec.eudi.pidissuer.adapter.out.proof.ValidateJwtProofNoAttestation
 import eu.europa.ec.eudi.pidissuer.adapter.out.proof.ValidateJwtProofWithKeyAttestation
 import eu.europa.ec.eudi.pidissuer.adapter.out.proof.VerifyKeyAttestation
 import eu.europa.ec.eudi.pidissuer.adapter.out.trust.Ignored
@@ -108,6 +109,7 @@ class DefaultValidateProofTest {
         val validator =
             ValidateProof(
                 validateJwtProofWithKeyAttestation = ValidateJwtProofWithKeyAttestation(issuer, verifyKeyAttestation),
+                validateJwtProofNoAttestation = ValidateJwtProofNoAttestation(issuer),
                 validateAttestationProof = ValidateAttestationProof(verifyKeyAttestation),
                 verifyNonce = { _, _ -> true },
             )

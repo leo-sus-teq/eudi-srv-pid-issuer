@@ -35,7 +35,7 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException
 import org.springframework.security.oauth2.core.OAuth2TokenIntrospectionClaimNames
 import org.springframework.security.oauth2.server.resource.introspection.BadOpaqueTokenException
-import org.springframework.security.oauth2.server.resource.introspection.SpringReactiveOpaqueTokenIntrospector
+import org.springframework.security.oauth2.server.resource.introspection.ReactiveOpaqueTokenIntrospector
 import reactor.core.publisher.Mono
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -46,7 +46,7 @@ import kotlin.time.Instant
  * [here](https://connect2id.com/products/nimbus-oauth-openid-connect-sdk/examples/oauth/dpop#rs).
  */
 class DPoPTokenReactiveAuthenticationManager(
-    private val introspector: SpringReactiveOpaqueTokenIntrospector,
+    private val introspector: ReactiveOpaqueTokenIntrospector,
     private val verifier: DPoPProtectedResourceRequestVerifier,
     private val dpopNonce: DPoPNoncePolicy,
     private val clock: Clock,

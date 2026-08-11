@@ -1,0 +1,23 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--/* Shared top bar for every issuer page: same TRUSTEQ brand mark + role
+       badge, styled to match the verifier app's own persistent header (see
+       eudi-web-verifier's wallet-layout-header component) - a full-width
+       divider/shadow bar whose content is capped and centered the same way
+       as the page body below it. One Thymeleaf fragment instead of
+       copy-pasting this markup into each of the three templates that
+       th:replace it. */-->
+<header th:fragment="header" class="site-header">
+    <div class="container px-4">
+        <div class="brand">
+            <img class="brand-logo"
+                 th:src="@{/public/img/trusteq-logo.png}"
+                 alt="TRUSTEQ - EUDI Demo Wallet"
+                 th:alt="#{eudiw}"/>
+            <span class="role-badge">Issuer</span>
+        </div>
+    </div>
+</header>
+</body>
+</html>

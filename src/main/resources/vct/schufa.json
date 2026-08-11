@@ -1,0 +1,97 @@
+{
+  "vct": "urn:eudi:schufa:1",
+  "name": "Schufa Credit Report SD-JWT VC Type Metadata",
+  "display": [
+    {
+      "locale": "en",
+      "name": "Schufa Credit Report",
+      "description": "SCHUFA Credit Report (Bonitätsauskunft)"
+    }
+  ],
+  "claims": [
+    {
+      "path": ["jti"],
+      "display": [{"locale": "en", "label": "JWT ID", "description": "A unique identifier for the token"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["iat"],
+      "display": [{"locale": "en", "label": "Issued At", "description": "The time at which the JWT was issued"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["exp"],
+      "display": [{"locale": "en", "label": "Expiration Time", "description": "The time on, or after which the JWT MUST NOT be accepted"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["vct"],
+      "display": [{"locale": "en", "label": "Verifiable Credential Type", "description": "A URI identifying the credential type"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["iss"],
+      "display": [{"locale": "en", "label": "Issuer", "description": "The Principal that issued the JWT"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["cnf"],
+      "display": [{"locale": "en", "label": "Confirmation", "description": "Key to be used by the Holder to verify Proof of Possession"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["cnf", "jwk"],
+      "display": [{"locale": "en", "label": "Json Web Key", "description": "Json Web Key to be used by the Holder to verify Proof of Possession"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["family_name"],
+      "display": [{"locale": "en", "label": "Family Name(s)", "description": "The family name(s) of the credit report subject"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["given_name"],
+      "display": [{"locale": "en", "label": "Given Name(s)", "description": "The given name(s) of the credit report subject"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["birth_date"],
+      "display": [{"locale": "en", "label": "Date of Birth", "description": "The date of birth of the credit report subject"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["credit_score"],
+      "display": [{"locale": "en", "label": "Credit Score", "description": "The credit score assigned to the subject"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["report_date"],
+      "display": [{"locale": "en", "label": "Report Date", "description": "The date the credit report was generated"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["valid_until"],
+      "display": [{"locale": "en", "label": "Valid Until", "description": "The date on which the credit report expires"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["issuing_entity"],
+      "display": [{"locale": "en", "label": "Issuing Entity", "description": "The name of the entity that issued the credit report"}],
+      "mandatory": true,
+      "sd": "never"
+    }
+  ]
+}

@@ -58,8 +58,13 @@ private suspend fun ServerRequest.createCredentialOfferRequest(): CreateCredenti
     @Serializable
     data class CreateCredentialsOfferRequestTO(
         @SerialName("credentialIds") val credentialIds: Set<String>? = null,
+        @SerialName("preAuthorizedCode") val preAuthorizedCode: Boolean? = null,
     ) {
-        fun asRequest() = CreateCredentialsOffer.Request(credentialIds.orEmpty().map(::CredentialConfigurationId).toSet())
+        fun asRequest() =
+            CreateCredentialsOffer.Request(
+                credentialIds.orEmpty().map(::CredentialConfigurationId).toSet(),
+                preAuthorizedCode = preAuthorizedCode ?: false,
+            )
     }
     return awaitBody<CreateCredentialsOfferRequestTO>().asRequest()
 }

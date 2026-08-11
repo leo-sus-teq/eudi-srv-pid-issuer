@@ -26,7 +26,12 @@ import com.eygraber.uri.Uri
 import eu.europa.ec.eudi.pidissuer.domain.CredentialConfiguration
 import eu.europa.ec.eudi.pidissuer.domain.CredentialConfigurationId
 import eu.europa.ec.eudi.pidissuer.domain.CredentialIssuerMetaData
+import eu.europa.ec.eudi.pidissuer.domain.HttpsUrl
+import eu.europa.ec.eudi.pidissuer.port.out.token.GeneratePreAuthorizedCode
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlin.time.Clock
+import kotlin.time.Duration
 
 /**
  * Generates a Credential Offer and a QR Code in PNG format.
@@ -35,6 +40,11 @@ class CreateCredentialsOffer(
     private val metadata: CredentialIssuerMetaData,
     val defaultCredentialOfferUri: Uri,
     private val allowedSchemes: NonEmptySet<SupportedCredentialOfferUriScheme>,
+    private val generatePreAuthorizedCode: GeneratePreAuthorizedCode,
+    private val preAuthorizedCodeDemoUsername: Username,
+    private val preAuthorizedCodeExpiresIn: Duration,
+    private val selfIssuedAuthorizationServer: HttpsUrl,
+    private val clock: Clock,
 ) {
     init {
         val scheme = defaultCredentialOfferUri.scheme?.let { SupportedCredentialOfferUriScheme.ofOrNull(it) }
@@ -44,9 +54,22 @@ class CreateCredentialsOffer(
     }
 
     context(_: Raise<Error>)
-    operator fun invoke(request: Request): Uri =
+    suspend operator fun invoke(request: Request): Uri =
         context(metadata, defaultCredentialOfferUri, allowedSchemes) {
-            val credentialOffer = validate(request.credentialConfigurationIds).authorizationCodeGrantOffer()
+            val validatedIds = validate(request.credentialConfigurationIds)
+            val credentialOffer =
+                if (request.preAuthorizedCode) {
+                    validatedIds.preAuthorizedCodeGrantOffer(
+                        generatePreAuthorizedCode,
+                        preAuthorizedCodeDemoUsername,
+                        preAuthorizedCodeExpiresIn,
+                        selfIssuedAuthorizationServer,
+                        clock,
+                        request.customData,
+                    )
+                } else {
+                    validatedIds.authorizationCodeGrantOffer()
+                }
             val credentialOfferUri = request.customCredentialsOfferUri?.toUri() ?: defaultCredentialOfferUri
             credentialOfferUri.append(credentialOffer)
         }
@@ -54,6 +77,13 @@ class CreateCredentialsOffer(
     data class Request(
         val credentialConfigurationIds: Set<CredentialConfigurationId>,
         val customCredentialsOfferUri: String? = null,
+        val preAuthorizedCode: Boolean = false,
+        /**
+         * Operator-entered claim values, per Credential Configuration, only meaningful when [preAuthorizedCode]
+         * is used - there is no interactive login step in that flow, so this is the only way to customize what
+         * gets issued. Ignored for the authorization_code flow.
+         */
+        val customData: Map<CredentialConfigurationId, JsonObject> = emptyMap(),
     )
 
     /**
@@ -118,6 +148,37 @@ private fun NonEmptySet<CredentialConfigurationId>.authorizationCodeGrantOffer()
         metadata.id.externalForm,
         map(CredentialConfigurationId::value).toSet(),
         GrantsTO(authorizationCode),
+    )
+}
+
+/**
+ * Creates a new [CredentialsOfferTO] for a [Pre-Authorized Code Grant][PreAuthorizedCodeTO] flow. The generated
+ * offer is bound to [username], since there is no interactive login step in this flow to establish who the
+ * Credentials should be issued for.
+ */
+context(metadata: CredentialIssuerMetaData)
+private suspend fun NonEmptySet<CredentialConfigurationId>.preAuthorizedCodeGrantOffer(
+    generatePreAuthorizedCode: GeneratePreAuthorizedCode,
+    username: Username,
+    expiresIn: Duration,
+    selfIssuedAuthorizationServer: HttpsUrl,
+    clock: Clock,
+    customData: Map<CredentialConfigurationId, JsonObject>,
+): CredentialsOfferTO {
+    val supported = metadata.credentialConfigurationsSupported
+    val scopes = checkNotNull(map { id -> supported.first { it.id == id }.scope }.toNonEmptySetOrNull())
+    val now = clock.now()
+    val relevantCustomData = customData.filterKeys { it in this }
+    val code = generatePreAuthorizedCode(now, expiresIn, username, scopes, relevantCustomData)
+    val preAuthorizedCode =
+        PreAuthorizedCodeTO(
+            preAuthorizedCode = code.value,
+            authorizationServer = selfIssuedAuthorizationServer.externalForm,
+        )
+    return CredentialsOfferTO(
+        metadata.id.externalForm,
+        map(CredentialConfigurationId::value).toSet(),
+        GrantsTO(preAuthorizedCode = preAuthorizedCode),
     )
 }
 

@@ -1,0 +1,121 @@
+{
+  "vct": "urn:eudi:residence.permit:1",
+  "name": "Residence Permit SD-JWT VC Type Metadata",
+  "display": [
+    {
+      "locale": "en",
+      "name": "Residence Permit",
+      "description": "Residence Permit"
+    }
+  ],
+  "claims": [
+    {
+      "path": ["jti"],
+      "display": [{"locale": "en", "label": "JWT ID", "description": "A unique identifier for the token"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["iat"],
+      "display": [{"locale": "en", "label": "Issued At", "description": "The time at which the JWT was issued"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["exp"],
+      "display": [{"locale": "en", "label": "Expiration Time", "description": "The time on, or after which the JWT MUST NOT be accepted"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["vct"],
+      "display": [{"locale": "en", "label": "Verifiable Credential Type", "description": "A URI identifying the credential type"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["iss"],
+      "display": [{"locale": "en", "label": "Issuer", "description": "The Principal that issued the JWT"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["cnf"],
+      "display": [{"locale": "en", "label": "Confirmation", "description": "Key to be used by the Holder to verify Proof of Possession"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["cnf", "jwk"],
+      "display": [{"locale": "en", "label": "Json Web Key", "description": "Json Web Key to be used by the Holder to verify Proof of Possession"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["family_name"],
+      "display": [{"locale": "en", "label": "Family Name(s)", "description": "The family name(s) of the permit holder"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["given_name"],
+      "display": [{"locale": "en", "label": "Given Name(s)", "description": "The given name(s) of the permit holder"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["birth_date"],
+      "display": [{"locale": "en", "label": "Date of Birth", "description": "The date of birth of the permit holder"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["nationality"],
+      "display": [{"locale": "en", "label": "Nationality", "description": "Alpha-2 country code, as specified in ISO 3166-1, representing the nationality of the permit holder"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["document_number"],
+      "display": [{"locale": "en", "label": "Document Number", "description": "The number of the residence permit document"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["administrative_number"],
+      "display": [{"locale": "en", "label": "Administrative Number", "description": "A reference number for the procedure/case that resulted in this residence permit"}],
+      "mandatory": false,
+      "sd": "always"
+    },
+    {
+      "path": ["issuing_authority"],
+      "display": [{"locale": "en", "label": "Issuing Authority", "description": "The name of the authority that issued the residence permit"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["issuing_country"],
+      "display": [{"locale": "en", "label": "Issuing Country", "description": "Alpha-2 country code, as specified in ISO 3166-1, of the country of the issuer"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["date_of_issuance"],
+      "display": [{"locale": "en", "label": "Date of Issuance", "description": "The date on which the residence permit was issued"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["date_of_expiry"],
+      "display": [{"locale": "en", "label": "Date of Expiry", "description": "The date on which the residence permit expires"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["resident_address"],
+      "display": [{"locale": "en", "label": "Resident Address", "description": "The registered residential address of the permit holder"}],
+      "mandatory": false,
+      "sd": "always"
+    }
+  ]
+}

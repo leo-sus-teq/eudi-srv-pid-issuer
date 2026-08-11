@@ -25,6 +25,7 @@ import kotlin.time.Instant
 
 class ValidateProof(
     private val validateJwtProofWithKeyAttestation: Validator<UnvalidatedProof.Jwt, ProofType.Jwt>,
+    private val validateJwtProofNoAttestation: Validator<UnvalidatedProof.Jwt, ProofType.Jwt>,
     private val validateAttestationProof: Validator<UnvalidatedProof.Attestation, ProofType.Attestation>,
     private val verifyNonce: VerifyNonce,
 ) {
@@ -82,7 +83,11 @@ class ValidateProof(
 
                 is UnvalidatedProof.Jwt if proofJwtKwithKA != null -> {
                     context(proofJwtKwithKA) {
-                        validateJwtProofWithKeyAttestation(unvalidatedProof, at)
+                        if (proofJwtKwithKA.keyAttestationRequirement != null) {
+                            validateJwtProofWithKeyAttestation(unvalidatedProof, at)
+                        } else {
+                            validateJwtProofNoAttestation(unvalidatedProof, at)
+                        }
                     }
                 }
 

@@ -19,20 +19,29 @@ import arrow.core.toNonEmptyListOrNull
 import arrow.core.toNonEmptySetOrThrow
 import com.eygraber.uri.Uri
 import com.eygraber.uri.Url
+import com.eygraber.uri.toURI
+import com.nimbusds.oauth2.sdk.dpop.verifiers.DPoPTokenRequestVerifier
+import com.nimbusds.oauth2.sdk.dpop.verifiers.InMemoryDPoPSingleUseChecker
 import eu.europa.ec.eudi.pidissuer.adapter.input.scheduler.CredentialRevocationJob
 import eu.europa.ec.eudi.pidissuer.adapter.input.web.*
 import eu.europa.ec.eudi.pidissuer.adapter.input.web.csrf.CsrfTokenSubscriberWebFilter
+import eu.europa.ec.eudi.pidissuer.adapter.input.web.security.DPoPConfigurationProperties
 import eu.europa.ec.eudi.pidissuer.adapter.out.jose.EncryptCredentialResponseNimbus
 import eu.europa.ec.eudi.pidissuer.adapter.out.jose.EncryptDeferredResponseNimbus
 import eu.europa.ec.eudi.pidissuer.adapter.out.jose.GenerateSignedMetadataWithNimbus
 import eu.europa.ec.eudi.pidissuer.adapter.out.nonce.DecryptNonceWithNimbusAndVerify
 import eu.europa.ec.eudi.pidissuer.adapter.out.nonce.GenerateNonceAndEncryptWithNimbus
 import eu.europa.ec.eudi.pidissuer.adapter.out.persistence.InMemoryDeferredCredentialRepository
+import eu.europa.ec.eudi.pidissuer.adapter.out.persistence.InMemoryUsedPreAuthorizedCodeChecker
 import eu.europa.ec.eudi.pidissuer.adapter.out.persistence.R2dbcIssuedCredentialRepository
 import eu.europa.ec.eudi.pidissuer.adapter.out.qr.DefaultGenerateQrCode
 import eu.europa.ec.eudi.pidissuer.adapter.out.status.GenerateStatusListTokenWithExternalService
 import eu.europa.ec.eudi.pidissuer.adapter.out.status.GetStatusListTokenWithStatium
 import eu.europa.ec.eudi.pidissuer.adapter.out.status.MarkStatusAsRevokedWithExternalService
+import eu.europa.ec.eudi.pidissuer.adapter.out.token.GeneratePreAuthorizedCodeWithNimbus
+import eu.europa.ec.eudi.pidissuer.adapter.out.token.GenerateSelfIssuedAccessTokenWithNimbus
+import eu.europa.ec.eudi.pidissuer.adapter.out.token.IntrospectSelfIssuedAccessTokenWithNimbus
+import eu.europa.ec.eudi.pidissuer.adapter.out.token.VerifyAndConsumePreAuthorizedCodeWithNimbus
 import eu.europa.ec.eudi.pidissuer.adapter.out.webclient.KtorHttpClients
 import eu.europa.ec.eudi.pidissuer.adapter.out.webclient.WebClients
 import eu.europa.ec.eudi.pidissuer.domain.*
@@ -166,6 +175,41 @@ internal class AppBeans :
         registerBean { DecryptNonceWithNimbusAndVerify(issuerPublicUrl, bean()) }
 
         //
+        // Pre-Authorized Code / Self-Issued Access Token
+        //
+        val tokenEndpoint = issuerPublicUrl.appendPath(TokenApi.TOKEN_ENDPOINT)
+        registerBean { GeneratePreAuthorizedCodeWithNimbus(issuerPublicUrl, bean()) }
+        registerBean { InMemoryUsedPreAuthorizedCodeChecker(mutableMapOf()) }
+        registerBean { VerifyAndConsumePreAuthorizedCodeWithNimbus(issuerPublicUrl, bean(), bean()) }
+        registerBean { GenerateSelfIssuedAccessTokenWithNimbus(issuerPublicUrl, bean()) }
+        registerBean { IntrospectSelfIssuedAccessTokenWithNimbus(issuerPublicUrl, bean()) }
+        registerBean {
+            DPoPTokenRequestVerifier(
+                bean<DPoPConfigurationProperties>().algorithms,
+                tokenEndpoint.value.toURI(),
+                15.seconds.inWholeSeconds,
+                30.seconds.inWholeSeconds,
+                InMemoryDPoPSingleUseChecker(60.seconds.inWholeSeconds, 10.minutes.inWholeSeconds),
+            )
+        }
+        registerBean {
+            IssuePreAuthorizedCodeAccessToken(
+                credentialIssuerMetadata = bean(),
+                verifyAndConsumePreAuthorizedCode = bean(),
+                generateSelfIssuedAccessToken = bean(),
+                accessTokenExpiresIn = env.duration("issuer.selfIssuedAccessToken.expiration") ?: 30.minutes,
+                clock = bean(),
+            )
+        }
+        registerBean {
+            GetAuthorizationServerMetadata(
+                issuerPublicUrl = issuerPublicUrl,
+                tokenEndpoint = tokenEndpoint,
+                dPoPConfigurationProperties = bean(),
+            )
+        }
+
+        //
         // Credentials
         //
         registerBean { GenerateNotificationId.Random }
@@ -240,6 +284,54 @@ internal class AppBeans :
                             add(issueLearningCredential)
                             add(issueLearningCredential.asDeferred(bean(), bean(), bean()))
                         }
+                        if (env.getBoolean("issuer.ehic.enabled") ?: true) {
+                            val issueEhic =
+                                IssuerFactory.ehicInSdJwtVc(
+                                    issuerSigningKey = getIssuerSigningKey("issuer.ehic.signing-key"),
+                                )
+                            add(issueEhic)
+                            add(issueEhic.asDeferred(bean(), bean(), bean()))
+                        }
+                        if (env.getBoolean("issuer.residencePermit.enabled") ?: true) {
+                            val issueResidencePermit =
+                                IssuerFactory.residencePermitInSdJwtVc(
+                                    issuerSigningKey = getIssuerSigningKey("issuer.residencePermit.signing-key"),
+                                )
+                            add(issueResidencePermit)
+                            add(issueResidencePermit.asDeferred(bean(), bean(), bean()))
+                        }
+                        if (env.getBoolean("issuer.schufa.sd_jwt_vc.enabled") ?: true) {
+                            val issueSchufaSdJwtVc =
+                                IssuerFactory.schufaInSdJwtVc(
+                                    issuerSigningKey = getIssuerSigningKey("issuer.schufa.sd_jwt_vc.signing-key"),
+                                )
+                            add(issueSchufaSdJwtVc)
+                            add(issueSchufaSdJwtVc.asDeferred(bean(), bean(), bean()))
+                        }
+                        if (env.getBoolean("issuer.schufa.mso_mdoc.enabled") ?: true) {
+                            val issueSchufaMdoc =
+                                IssuerFactory.schufaInMdoc(
+                                    issuerSigningKey = getIssuerSigningKey("issuer.schufa.mso_mdoc.signing-key"),
+                                )
+                            add(issueSchufaMdoc)
+                            add(issueSchufaMdoc.asDeferred(bean(), bean(), bean()))
+                        }
+                        if (env.getBoolean("issuer.arbeitsvertrag.sd_jwt_vc.enabled") ?: true) {
+                            val issueArbeitsvertragSdJwtVc =
+                                IssuerFactory.arbeitsvertragInSdJwtVc(
+                                    issuerSigningKey = getIssuerSigningKey("issuer.arbeitsvertrag.sd_jwt_vc.signing-key"),
+                                )
+                            add(issueArbeitsvertragSdJwtVc)
+                            add(issueArbeitsvertragSdJwtVc.asDeferred(bean(), bean(), bean()))
+                        }
+                        if (env.getBoolean("issuer.arbeitsvertrag.mso_mdoc.enabled") ?: true) {
+                            val issueArbeitsvertragMdoc =
+                                IssuerFactory.arbeitsvertragInMdoc(
+                                    issuerSigningKey = getIssuerSigningKey("issuer.arbeitsvertrag.mso_mdoc.signing-key"),
+                                )
+                            add(issueArbeitsvertragMdoc)
+                            add(issueArbeitsvertragMdoc.asDeferred(bean(), bean(), bean()))
+                        }
                     }.toNonEmptyListOrNull()
                 }
             checkNotNull(attestationIssuers) { "At least one credential issuer must be configured" }
@@ -253,7 +345,7 @@ internal class AppBeans :
                 deferredCredentialEndpoint = issuerPublicUrl.appendPath(WalletApi.DEFERRED_ENDPOINT),
                 notificationEndpoint = issuerPublicUrl.appendPath(WalletApi.NOTIFICATION_ENDPOINT),
                 nonceEndpoint = issuerPublicUrl.appendPath(WalletApi.NONCE_ENDPOINT),
-                authorizationServers = listOf(env.readRequiredUrl("issuer.authorizationServer.publicUrl")),
+                authorizationServers = listOf(env.readRequiredUrl("issuer.authorizationServer.publicUrl"), issuerPublicUrl),
                 credentialRequestEncryption = env.credentialRequestEncryption { issuerKeystore },
                 credentialResponseEncryption = env.credentialResponseEncryption(),
                 attestationIssuers = attestationIssuers,
@@ -295,7 +387,16 @@ internal class AppBeans :
                     .getRequiredProperty<Set<String>>("issuer.credentialOffer.allowedSchemes")
                     .map { SupportedCredentialOfferUriScheme.of(it) }
                     .toNonEmptySetOrThrow()
-            CreateCredentialsOffer(bean(), defaultCredentialOfferUri, allowedSchemes)
+            CreateCredentialsOffer(
+                metadata = bean(),
+                defaultCredentialOfferUri = defaultCredentialOfferUri,
+                allowedSchemes = allowedSchemes,
+                generatePreAuthorizedCode = bean(),
+                preAuthorizedCodeDemoUsername = env.getRequiredProperty("issuer.preAuthorizedCode.demoUsername"),
+                preAuthorizedCodeExpiresIn = env.duration("issuer.preAuthorizedCode.expiration") ?: 10.minutes,
+                selfIssuedAuthorizationServer = issuerPublicUrl,
+                clock = bean(),
+            )
         }
 
         registerBean {
@@ -314,14 +415,16 @@ internal class AppBeans :
                     .typeMetadata
                     .associateBy { Vct(it.vct) }
                     .mapValues { it.value.resource }
-            val metaDataApi = MetaDataApi(bean(), bean(), typeMetadata, bean())
+            val metaDataApi = MetaDataApi(bean(), bean(), typeMetadata, bean(), bean())
             val walletApi = WalletApi(bean(), bean(), bean(), bean())
             val issuerUi = IssuerUi(bean(), bean(), bean())
             val issuerApi = IssuerApi(bean())
+            val tokenApi = TokenApi(bean(), bean())
             metaDataApi.route
                 .and(walletApi.route)
                 .and(issuerUi.router)
                 .and(issuerApi.router)
+                .and(tokenApi.route)
         }
 
         //
@@ -346,6 +449,7 @@ internal class AppBeans :
                 clock = bean(),
                 verifyNonce = bean(),
                 generateNonce = bean(),
+                introspectSelfIssuedAccessToken = bean(),
             )
         }
 

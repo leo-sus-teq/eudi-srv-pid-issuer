@@ -19,9 +19,11 @@ import arrow.core.NonEmptyList
 import arrow.core.nonEmptyListOf
 import eu.europa.ec.eudi.pidissuer.adapter.out.attestation.mdl.IsoAlpha2CountryCode
 import eu.europa.ec.eudi.pidissuer.adapter.out.attestation.pid.Pid
+import eu.europa.ec.eudi.pidissuer.adapter.out.attestation.stringFieldOrNull
 import eu.europa.ec.eudi.pidissuer.adapter.out.util.randomInstantInThePast
 import eu.europa.ec.eudi.pidissuer.domain.HttpsUrl
 import eu.europa.ec.eudi.pidissuer.domain.NonBlankString
+import kotlinx.serialization.json.JsonObject
 import kotlin.random.Random
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
@@ -136,3 +138,16 @@ fun LearningCredential.Companion.random(pid: Pid): LearningCredential {
         integrationStackabilityOptions = IntegrationStackabilityOptions.entries.shuffled(random).first(),
     )
 }
+
+/**
+ * Overrides only the fields present in operator-entered [customData], keeping this [LearningCredential]'s values for
+ * the rest. Only the fields exposed in the demo form (name, degree title, institution) can be overridden; the more
+ * academic fields keep their auto-generated values.
+ */
+fun LearningCredential.overriddenBy(customData: JsonObject): LearningCredential =
+    copy(
+        familyName = customData.stringFieldOrNull("family_name")?.let(::FamilyName) ?: familyName,
+        givenName = customData.stringFieldOrNull("given_name")?.let(::GivenName) ?: givenName,
+        achievementTitle = customData.stringFieldOrNull("degree_title")?.let(::AchievementTitle) ?: achievementTitle,
+        issuer = customData.stringFieldOrNull("institution")?.let { issuer.copy(name = Issuer.Name(it)) } ?: issuer,
+    )

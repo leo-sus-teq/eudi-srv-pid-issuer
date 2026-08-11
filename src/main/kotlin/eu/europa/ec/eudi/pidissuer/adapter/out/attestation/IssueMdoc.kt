@@ -60,7 +60,7 @@ class IssueMdoc<Attr>(
         val attributes = getAttestationAttributes()
         val notificationId = generateNotificationId?.invoke()
         val clientStatus = authorizationContext.clientStatus
-        val keyStorageStatus = keyAttestation.keyStorageStatus.status.statusList
+        val keyStorageStatus = keyAttestation.keyStorageStatus?.status?.statusList
         val expiresAt = issuedAt + configuration.validity
         val issuedInstances =
             deviceKeys

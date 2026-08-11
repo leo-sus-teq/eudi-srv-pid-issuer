@@ -22,6 +22,9 @@ import arrow.core.raise.getOrElse
 import eu.europa.ec.eudi.pidissuer.PidIssuerApplicationTest
 import eu.europa.ec.eudi.pidissuer.domain.CredentialIssuerMetaData
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.TestPropertySource
 import kotlin.test.*
@@ -99,5 +102,66 @@ class CreateCredentialsOfferTest {
                     },
                 )
             }
+        }
+
+    @Test
+    fun `pre-authorized_code offer is bound to the issuer's own token endpoint, carries only that grant`() =
+        runTest {
+            effect {
+                val credentialConfigurationIds = nonEmptySetOf(credentialIssuerMetadata.credentialConfigurationsSupported.first().id)
+                val uri =
+                    createCredentialsOffer(
+                        CreateCredentialsOffer.Request(credentialConfigurationIds, preAuthorizedCode = true),
+                    )
+                val offerJson = assertNotNull(uri.getQueryParameter("credential_offer"))
+                val offer = Json.decodeFromString<CredentialsOfferTO>(offerJson)
+
+                assertNull(offer.grants?.authorizationCode)
+                val grant = assertNotNull(offer.grants?.preAuthorizedCode)
+                assertTrue(grant.preAuthorizedCode.isNotBlank())
+                // index 0 stays Keycloak (used by the authorization_code grant); the issuer's own url is index 1
+                assertEquals(credentialIssuerMetadata.authorizationServers[1].externalForm, grant.authorizationServer)
+                assertNotEquals(credentialIssuerMetadata.authorizationServers[0].externalForm, grant.authorizationServer)
+            }.getOrElse { fail("Failed to create pre-authorized_code offer, error: $it") }
+        }
+
+    @Test
+    fun `pre-authorized_code offer generation succeeds when carrying operator-entered custom data`() =
+        runTest {
+            effect {
+                val configId = credentialIssuerMetadata.credentialConfigurationsSupported.first().id
+                val credentialConfigurationIds = nonEmptySetOf(configId)
+                val customData = mapOf(configId to buildJsonObject { put("family_name", "Doe") })
+                val uri =
+                    createCredentialsOffer(
+                        CreateCredentialsOffer.Request(
+                            credentialConfigurationIds,
+                            preAuthorizedCode = true,
+                            customData = customData,
+                        ),
+                    )
+                val offerJson = assertNotNull(uri.getQueryParameter("credential_offer"))
+                val offer = Json.decodeFromString<CredentialsOfferTO>(offerJson)
+                val grant = assertNotNull(offer.grants?.preAuthorizedCode)
+                assertTrue(grant.preAuthorizedCode.isNotBlank())
+            }.getOrElse { fail("Failed to create pre-authorized_code offer with custom data, error: $it") }
+        }
+
+    @Test
+    fun `authorization_code offer is unaffected by the pre-authorized_code addition`() =
+        runTest {
+            effect {
+                val credentialConfigurationIds = nonEmptySetOf(credentialIssuerMetadata.credentialConfigurationsSupported.first().id)
+                val uri =
+                    createCredentialsOffer(
+                        CreateCredentialsOffer.Request(credentialConfigurationIds, preAuthorizedCode = false),
+                    )
+                val offerJson = assertNotNull(uri.getQueryParameter("credential_offer"))
+                val offer = Json.decodeFromString<CredentialsOfferTO>(offerJson)
+
+                assertNull(offer.grants?.preAuthorizedCode)
+                val grant = assertNotNull(offer.grants?.authorizationCode)
+                assertEquals(credentialIssuerMetadata.authorizationServers[0].externalForm, grant.authorizationServer)
+            }.getOrElse { fail("Failed to create authorization_code offer, error: $it") }
         }
 }

@@ -5,6 +5,27 @@ the [EUDI Wallet Reference Implementation project description](https://github.co
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
+> [!NOTE]
+> **This checkout is one piece of a larger local demo** - see the
+> [top-level README](../README.md) for how it fits together with the
+> verifier, wallet, and client-site apps. Two things below are specific to
+> that demo setup and differ from a plain upstream checkout:
+> - **URLs**: this demo puts the whole stack behind a shared gateway, so
+>   every URL below that says `https://localhost/...` is actually reachable
+>   at `https://issuer.localhost/...` instead (no port, no direct host-port
+>   publishing from this project's own `docker-compose` - see
+>   [`../gateway/`](../gateway/)).
+> - **Image build step**: `docker-compose/docker-compose.yaml`'s
+>   `pid-issuer` service is set to `pull_policy: never` and expects a
+>   locally-built image, not the upstream `ghcr.io` one. Run
+>   `./gradlew bootBuildImage` from this directory *before* `docker compose
+>   up` (and again after any source or branding change).
+> - **Credential coverage**: beyond the PID/mDL/Learning Credential table
+>   below, this demo's `docker-compose.yaml` also issues a **European
+>   Health Insurance Card**, **Residence Permit**, **Schufa Credit Report**,
+>   and **Employment Certificate** (the latter two are TRUSTEQ-branded demo
+>   credentials, not part of the upstream reference set).
+
 * [Overview](#overview)
 * [OpenId4VCI coverage](#openid4vci-coverage)
 * [How to use docker](#how-to-use-docker)

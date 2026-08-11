@@ -19,6 +19,7 @@ import arrow.core.NonEmptyList
 import arrow.core.NonEmptySet
 import arrow.core.raise.Raise
 import arrow.core.raise.context.ensure
+import arrow.core.raise.context.ensureNotNull
 import arrow.core.raise.context.raise
 import arrow.core.toNonEmptyListOrNull
 import com.eygraber.uri.Uri
@@ -56,14 +57,19 @@ class VerifyKeyAttestation(
     suspend operator fun invoke(
         keyAttestation: KeyAttestationJWT,
         at: Instant,
-    ): Pair<NonEmptyList<ECKey>, String?> =
-        invoke(
+    ): Pair<NonEmptyList<ECKey>, String?> {
+        val keyAttestationRequirement =
+            ensureNotNull(proofType.keyAttestationRequirement) {
+                "This proof type does not require key attestation"
+            }
+        return invoke(
             keyAttestation,
             proofType.signingAlgorithmsSupported,
-            proofType.keyAttestationRequirement,
+            keyAttestationRequirement,
             expectExpirationClaim = true,
             at,
         )
+    }
 
     context(_: Raise<String>, proofType: ProofType.Attestation)
     suspend operator fun invoke(

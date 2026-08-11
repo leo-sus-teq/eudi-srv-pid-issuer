@@ -20,9 +20,11 @@ import arrow.core.raise.Raise
 import arrow.core.raise.context.ensure
 import com.nimbusds.oauth2.sdk.token.DPoPAccessToken
 import eu.europa.ec.eudi.pidissuer.domain.ClientStatus
+import eu.europa.ec.eudi.pidissuer.domain.CredentialConfigurationId
 import eu.europa.ec.eudi.pidissuer.domain.CredentialIssuerMetaData
 import eu.europa.ec.eudi.pidissuer.domain.Scope
 import eu.europa.ec.eudi.pidissuer.port.input.IssueCredentialError.InvalidClientStatusExpiration
+import kotlinx.serialization.json.JsonObject
 import kotlin.time.Clock
 
 typealias Username = String
@@ -34,6 +36,12 @@ data class AuthorizationContext(
     val scopes: NonEmptySet<Scope>,
     val clientId: ClientId? = null,
     val clientStatus: ClientStatus,
+    /**
+     * Operator-entered claim values, per Credential Configuration, carried over from the pre-authorized_code
+     * offer that was used to obtain the current access token. Empty for tokens obtained via the
+     * authorization_code flow (there is no such data for those).
+     */
+    val customData: Map<CredentialConfigurationId, JsonObject> = emptyMap(),
 )
 
 context(

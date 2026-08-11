@@ -1,0 +1,103 @@
+{
+  "vct": "urn:eudi:ehic:1",
+  "name": "European Health Insurance Card SD-JWT VC Type Metadata",
+  "display": [
+    {
+      "locale": "en",
+      "name": "Health Insurance Card",
+      "description": "European Health Insurance Card"
+    }
+  ],
+  "claims": [
+    {
+      "path": ["jti"],
+      "display": [{"locale": "en", "label": "JWT ID", "description": "A unique identifier for the token"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["iat"],
+      "display": [{"locale": "en", "label": "Issued At", "description": "The time at which the JWT was issued"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["exp"],
+      "display": [{"locale": "en", "label": "Expiration Time", "description": "The time on, or after which the JWT MUST NOT be accepted"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["vct"],
+      "display": [{"locale": "en", "label": "Verifiable Credential Type", "description": "A URI identifying the credential type"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["iss"],
+      "display": [{"locale": "en", "label": "Issuer", "description": "The Principal that issued the JWT"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["cnf"],
+      "display": [{"locale": "en", "label": "Confirmation", "description": "Key to be used by the Holder to verify Proof of Possession"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["cnf", "jwk"],
+      "display": [{"locale": "en", "label": "Json Web Key", "description": "Json Web Key to be used by the Holder to verify Proof of Possession"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["family_name"],
+      "display": [{"locale": "en", "label": "Family Name(s)", "description": "The family name(s) of the card holder"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["given_name"],
+      "display": [{"locale": "en", "label": "Given Name(s)", "description": "The given name(s) of the card holder"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["birth_date"],
+      "display": [{"locale": "en", "label": "Date of Birth", "description": "The date of birth of the card holder"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["personal_administrative_number"],
+      "display": [{"locale": "en", "label": "Health Insurance Number", "description": "The card holder's personal health insurance/social security number"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["issuing_authority_id"],
+      "display": [{"locale": "en", "label": "Issuing Authority Identifier", "description": "An identifier of the health insurance institution that issued the card"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["issuing_authority_name"],
+      "display": [{"locale": "en", "label": "Issuing Authority Name", "description": "The name of the health insurance institution that issued the card"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["issuing_country"],
+      "display": [{"locale": "en", "label": "Issuing Country", "description": "Alpha-2 country code, as specified in ISO 3166-1, of the country of the issuer"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["date_of_expiry"],
+      "display": [{"locale": "en", "label": "Date of Expiry", "description": "The date on which the card expires"}],
+      "mandatory": true,
+      "sd": "never"
+    }
+  ]
+}

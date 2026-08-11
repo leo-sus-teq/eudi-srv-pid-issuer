@@ -155,7 +155,9 @@ tasks.jar {
 tasks.bootBuildImage {
     imageName = "$group/${project.name}"
     publish = false
-    environment = System.getenv()
+    environment = System.getenv().filterKeys {
+        it in setOf("REGISTRY_URL", "REGISTRY_USERNAME", "REGISTRY_PASSWORD", "DOCKER_METADATA_OUTPUT_TAGS")
+    }
 
     builder = "paketobuildpacks/builder-noble-java-tiny:latest"
     runImage = "paketobuildpacks/ubuntu-noble-run:latest"

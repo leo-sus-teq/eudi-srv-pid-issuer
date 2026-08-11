@@ -70,7 +70,7 @@ class IssueLearningCredential(
         val expiresAt = issuedAt + configuration.validity
         val notificationId = generateNotificationId?.invoke()
         val clientStatus = authorizationContext.clientStatus.status.statusList
-        val keyStorageStatus = keyAttestation.keyStorageStatus.status.statusList
+        val keyStorageStatus = keyAttestation.keyStorageStatus?.status?.statusList
         val issuedCredentials =
             keyAttestation.keys.value
                 .parMap(Dispatchers.Default, 4) { deviceKey ->
@@ -114,6 +114,10 @@ class IssueLearningCredential(
     }
 
     companion object {
+        val CONFIGURATION_ID = CredentialConfigurationId("urn:eu.europa.ec.eudi:learning:credential:1:dc+sd-jwt-compact")
+        val SCOPE = Scope("urn:eu.europa.ec.eudi:learning:credential:1:dc+sd-jwt")
+        val TYPE = SdJwtVcType("urn:eu.europa.ec.eudi:learning:credential:1")
+
         operator fun invoke(
             sdJwtVcSerialization: SdJwtVcSerialization = SdJwtVcSerialization.Compact,
             clock: Clock,
@@ -146,13 +150,22 @@ class IssueLearningCredential(
             )
         }
 
+        /**
+         * Builds a random demo dataset, overridden field-by-field by whatever the operator typed into the
+         * offer-generation form (see [LearningCredential.overriddenBy]).
+         */
         fun randomLearningCredentials(
             clock: Clock,
             getPidData: GetAttestationAttributes<PidAttributes>,
         ): GetAttestationAttributes<LearningCredential> =
-            GetAttestationAttributes {
-                val (pid, _) = getPidData()
-                context(clock, Random) { LearningCredential.random(pid) }
+            object : GetAttestationAttributes<LearningCredential> {
+                context(_: Raise<IssueCredentialError.AttestationDatasetNotFound>, authorizationContext: AuthorizationContext)
+                override suspend fun invoke(): LearningCredential {
+                    val (pid, _) = getPidData()
+                    val default = context(clock, Random) { LearningCredential.random(pid) }
+                    val customData = authorizationContext.customData[CONFIGURATION_ID]
+                    return if (customData != null) default.overriddenBy(customData) else default
+                }
             }
     }
 }
@@ -164,12 +177,12 @@ private fun cfg(
     issuerSigningKey: IssuerSigningKey,
 ): SdJwtVcCredentialConfiguration =
     SdJwtVcCredentialConfiguration(
-        CredentialConfigurationId("urn:eu.europa.ec.eudi:learning:credential:1:dc+sd-jwt-compact"),
-        Scope("urn:eu.europa.ec.eudi:learning:credential:1:dc+sd-jwt"),
+        IssueLearningCredential.CONFIGURATION_ID,
+        IssueLearningCredential.SCOPE,
         display =
             nonEmptyListOf(
                 CredentialDisplay(
-                    DisplayName.en("Learning Credential (SD-JWT VC Compact)"),
+                    DisplayName.en("Diploma"),
                 ),
             ),
         claims = SdJwtVcClaims.all(),
@@ -177,7 +190,7 @@ private fun cfg(
         category = AttestationCategory.Eaa,
         reusePolicy = credentialReusePolicy,
         validity = validity,
-        type = SdJwtVcType("urn:eu.europa.ec.eudi:learning:credential:1"),
+        type = IssueLearningCredential.TYPE,
         credentialSigningAlgorithmsSupported = nonEmptySetOf(issuerSigningKey.signingAlgorithm),
         publicKey = issuerSigningKey.key.toPublicJWK(),
     )

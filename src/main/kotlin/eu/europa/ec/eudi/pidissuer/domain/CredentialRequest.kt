@@ -52,7 +52,11 @@ sealed interface UnvalidatedProof {
 data class KeyAttestation(
     val keys: CredentialKeys,
     val cNonce: String,
-    val keyStorageStatus: KeyStorageStatus,
+    /**
+     * Null when the proof that produced this [KeyAttestation] carried no key attestation at all (see
+     * [DeviceBinding.Required.ProofOption.ProofJwtNoAttestation]) - there is no real key-storage status to report.
+     */
+    val keyStorageStatus: KeyStorageStatus?,
 )
 
 context(_: Raise<InvalidNonce>, verifyNonce: VerifyNonce)

@@ -1,0 +1,97 @@
+{
+  "vct": "urn:eudi:trusteq.arbeitsvertrag:1",
+  "name": "TRUSTEQ Employment Certificate SD-JWT VC Type Metadata",
+  "display": [
+    {
+      "locale": "en",
+      "name": "Employment Certificate (TRUSTEQ)",
+      "description": "TRUSTEQ Employment Certificate (Arbeitsvertrag)"
+    }
+  ],
+  "claims": [
+    {
+      "path": ["jti"],
+      "display": [{"locale": "en", "label": "JWT ID", "description": "A unique identifier for the token"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["iat"],
+      "display": [{"locale": "en", "label": "Issued At", "description": "The time at which the JWT was issued"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["exp"],
+      "display": [{"locale": "en", "label": "Expiration Time", "description": "The time on, or after which the JWT MUST NOT be accepted"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["vct"],
+      "display": [{"locale": "en", "label": "Verifiable Credential Type", "description": "A URI identifying the credential type"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["iss"],
+      "display": [{"locale": "en", "label": "Issuer", "description": "The Principal that issued the JWT"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["cnf"],
+      "display": [{"locale": "en", "label": "Confirmation", "description": "Key to be used by the Holder to verify Proof of Possession"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["cnf", "jwk"],
+      "display": [{"locale": "en", "label": "Json Web Key", "description": "Json Web Key to be used by the Holder to verify Proof of Possession"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["employee_family_name"],
+      "display": [{"locale": "en", "label": "Employee Family Name(s)", "description": "The family name(s) of the employee"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["employee_given_name"],
+      "display": [{"locale": "en", "label": "Employee Given Name(s)", "description": "The given name(s) of the employee"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["job_title"],
+      "display": [{"locale": "en", "label": "Job Title", "description": "The employee's job title"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["employment_start_date"],
+      "display": [{"locale": "en", "label": "Employment Start Date", "description": "The date the employment began"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["employer"],
+      "display": [{"locale": "en", "label": "Employer", "description": "The name of the employing organization"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["contract_type"],
+      "display": [{"locale": "en", "label": "Contract Type", "description": "The type of employment contract"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["department"],
+      "display": [{"locale": "en", "label": "Department", "description": "The department the employee works in"}],
+      "mandatory": true,
+      "sd": "never"
+    }
+  ]
+}

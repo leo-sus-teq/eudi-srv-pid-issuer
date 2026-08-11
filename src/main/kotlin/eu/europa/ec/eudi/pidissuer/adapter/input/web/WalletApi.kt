@@ -21,10 +21,12 @@ import com.nimbusds.jose.util.JSONObjectUtils
 import eu.europa.ec.eudi.pidissuer.adapter.input.web.security.DPoPTokenAuthentication
 import eu.europa.ec.eudi.pidissuer.adapter.out.json.jsonSupport
 import eu.europa.ec.eudi.pidissuer.domain.ClientStatus
+import eu.europa.ec.eudi.pidissuer.domain.CredentialConfigurationId
 import eu.europa.ec.eudi.pidissuer.domain.Scope
 import eu.europa.ec.eudi.pidissuer.domain.TS3
 import eu.europa.ec.eudi.pidissuer.port.input.*
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import org.springframework.http.CacheControl
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -172,8 +174,21 @@ private suspend fun ServerRequest.authorizationContext(): AuthorizationContext {
             @Suppress("UNCHECKED_CAST")
             jsonSupport.decodeFromString<ClientStatus>(JSONObjectUtils.toJSONString(value as Map<String, Any?>))
         }
+    val customData =
+        run {
+            val value = authentication.principal?.attributes?.get("custom_data")
+            if (null == value) {
+                emptyMap()
+            } else {
+                require(value is Map<*, *>) { "Unexpected custom_data claim type '${value::class.java}'" }
+                @Suppress("UNCHECKED_CAST")
+                jsonSupport
+                    .decodeFromString<Map<String, JsonObject>>(JSONObjectUtils.toJSONString(value as Map<String, Any?>))
+                    .mapKeys { (id, _) -> CredentialConfigurationId(id) }
+            }
+        }
 
-    return AuthorizationContext(authentication.name, authentication.accessToken, scopes, clientId, clientStatus)
+    return AuthorizationContext(authentication.name, authentication.accessToken, scopes, clientId, clientStatus, customData)
 }
 
 private enum class JsonOrJwt {

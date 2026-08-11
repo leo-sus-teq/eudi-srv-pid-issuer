@@ -42,7 +42,9 @@ class DefaultGenerateQrCode : GenerateQqCode {
     private val hints =
         mapOf(
             EncodeHintType.CHARACTER_SET to Charsets.UTF_8.name(),
-            EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.H,
+            // L (not H): offer URIs carrying operator-entered custom data can get close to a few KB, and QR
+            // version 40 tops out at 1273 bytes at H vs 2953 bytes at L.
+            EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.L,
         )
 
     private fun matrix(
