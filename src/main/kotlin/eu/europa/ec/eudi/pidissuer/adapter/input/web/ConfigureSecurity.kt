@@ -89,6 +89,21 @@ fun configureUiSecurity(
             }
 
             contentSecurityPolicy {
+                // 'self' plus this demo's own combined-view dashboard (see
+                // ../../../../../../../eudi-dashboard/) - not a wide-open
+                // allow-list, just the one legitimate framer this demo
+                // actually has. Read from a property (default matches the
+                // original hardcoded value) rather than hardcoded outright,
+                // since it has to track wherever the dashboard is actually
+                // reachable - see issuer.ui.dashboardOrigin in
+                // application.properties and ISSUER_UI_DASHBOARDORIGIN in
+                // docker-compose.yaml. Unlike everything else in this
+                // demo's deployment config, this one needs a rebuild to
+                // change, since it's compiled into the jar - but only this
+                // property; once set, further domain changes are still
+                // config-only.
+                val dashboardOrigin = environment.getProperty("issuer.ui.dashboardOrigin", "https://demo.localhost")
+
                 // policies
                 policyDirectives =
                     nonEmptyListOf(
@@ -98,11 +113,7 @@ fun configureUiSecurity(
                         "img-src 'self' data:",
                         "object-src 'none'",
                         "base-uri 'self'",
-                        // 'self' plus this demo's own combined-view dashboard
-                        // (see ../../../../../../../dashboard/) - not a wide-open
-                        // allow-list, just the one legitimate framer this demo
-                        // actually has.
-                        "frame-ancestors 'self' https://demo.localhost",
+                        "frame-ancestors 'self' $dashboardOrigin",
                     ).joinToString(separator = "; ")
 
                 // set enforcing mode
