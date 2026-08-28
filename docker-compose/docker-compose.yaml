@@ -38,13 +38,32 @@ services:
       - --import-realm
       - --features=dpop,passkeys
     environment:
-      - KC_PROXY_HEADERS=forwarded
+      # "forwarded" (this demo's own default) = trust the RFC 7239
+      # `Forwarded` header, which the outer gateway's haproxy sets and every
+      # inner hop relays unchanged. Deploying this stack behind something
+      # that instead sets the X-Forwarded-* family and never RFC 7239
+      # Forwarded (confirmed live: Azure Container Apps' own ingress is
+      # exactly this shape) needs KC_PROXY_HEADERS=xforwarded instead -
+      # override it in that environment's own container config rather than
+      # here, since Keycloak only trusts one family at a time and changing
+      # the default here would break this demo's own local/self-signed/
+      # provided/behind-proxy setup, which already relies on "forwarded".
+      - KC_PROXY_HEADERS=${KC_PROXY_HEADERS:-forwarded}
       - KC_HTTP_ENABLED=true
       - KC_HTTP_RELATIVE_PATH=/idp
       - KC_HOSTNAME=${DEMO_SCHEME:-https}://${ISSUER_HOST:-issuer.localhost}/idp
       - KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true
       - KC_HTTPS_CERTIFICATE_FILE=/etc/ssl/certs/keycloak.tls.crt
       - KC_HTTPS_CERTIFICATE_KEY_FILE=/etc/ssl/certs/keycloak.tls.key
+      # Nothing calls Keycloak's :8443 listener anymore as of the
+      # http://keycloak:8080 switch above (haproxy's keycloak-backend was
+      # already plain :8080) - the two lines above are dead code today, same
+      # as several haproxy TLS binds elsewhere in this demo. Kept enabled by
+      # default so local `docker compose up -d` behavior is unchanged either
+      # way; override to false in an environment with no bind-mounted
+      # keycloak.tls.crt/key (e.g. Azure Container Apps) so Keycloak doesn't
+      # try and fail to load a cert that was never provided there.
+      - KC_HTTPS_ENABLED=${KC_HTTPS_ENABLED:-true}
       - KC_BOOTSTRAP_ADMIN_USERNAME=admin
       - KC_BOOTSTRAP_ADMIN_PASSWORD=password
     healthcheck:
@@ -108,9 +127,28 @@ services:
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_OPAQUETOKEN_CLIENTID=pid-issuer-srv
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_OPAQUETOKEN_CLIENTSECRET=gnqZxLhmqvOkLVRq8DVWqSPvxYpBPCUf
       - SPRING_HTTP_CODECS_MAXINMEMORYSIZE=8MB
+      # SameSite=None is only valid alongside Secure, which only works over
+      # real HTTPS - demo-up.sh derives both of these from DEMO_TLS_MODE
+      # (see its comments), so they're "none"/"true" whenever there's TLS
+      # in front of this (the default, and what lets the issuer's CSRF-
+      # protected UI survive being embedded in the dashboard's cross-site
+      # iframe), and safely fall back to the browser's own default
+      # (Lax, unpartitioned) when DEMO_TLS_MODE=none - embedding still
+      # won't work without TLS (browsers require Secure for SameSite=None,
+      # full stop), but standalone use of the issuer keeps working either
+      # way, which forcing "none" unconditionally here would have broken.
+      - SERVER_REACTIVE_SESSION_COOKIE_SAME_SITE=${SESSION_COOKIE_SAME_SITE:-none}
+      - SERVER_REACTIVE_SESSION_COOKIE_PARTITIONED=${SESSION_COOKIE_PARTITIONED:-true}
       - ISSUER_PUBLICURL=${DEMO_SCHEME:-https}://${ISSUER_HOST:-issuer.localhost}/pid-issuer
       - ISSUER_AUTHORIZATIONSERVER_PUBLICURL=${DEMO_SCHEME:-https}://${ISSUER_HOST:-issuer.localhost}/idp/realms/pid-issuer-realm
-      - ISSUER_AUTHORIZATIONSERVER_INTROSPECTION=https://keycloak:8443/idp/realms/pid-issuer-realm/protocol/openid-connect/token/introspect
+      # Plain HTTP on Keycloak's :8080 (KC_HTTP_ENABLED=true), not the :8443
+      # TLS listener - this is a same-docker-network hop entirely internal
+      # to this stack, unrelated to the browser-facing scheme, so it doesn't
+      # need to vary with DEMO_TLS_MODE. Using the plain port here means
+      # Keycloak doesn't need its own TLS cert/listener at all in an
+      # environment (e.g. Azure Container Apps) that has no bind-mounted
+      # keycloak.tls.crt/key to give it.
+      - ISSUER_AUTHORIZATIONSERVER_INTROSPECTION=http://keycloak:8080/idp/realms/pid-issuer-realm/protocol/openid-connect/token/introspect
       - ISSUER_KEYSTORE_FILE=file:/issuer-keys.jks
       - ISSUER_KEYSTORE_TYPE=JKS
       - ISSUER_KEYSTORE_PASSWORD=keys
@@ -140,7 +178,9 @@ services:
       - ISSUER_ARBEITSVERTRAG_MSO_MDOC_SIGNING_KEY_PASSWORD=issuance
       - ISSUER_ACCESSCERTIFICATE_ALIAS=access-certificate
       - ISSUER_ACCESSCERTIFICATE_PASSWORD=access-certificate
-      - ISSUER_KEYCLOAK_SERVER_URL=https://keycloak:8443/idp
+      # See the ISSUER_AUTHORIZATIONSERVER_INTROSPECTION comment above - same
+      # reasoning, same plain-:8080 port.
+      - ISSUER_KEYCLOAK_SERVER_URL=http://keycloak:8080/idp
       - ISSUER_KEYCLOAK_AUTHENTICATION_REALM=master
       - ISSUER_KEYCLOAK_CLIENT_ID=admin-cli
       - ISSUER_KEYCLOAK_USERNAME=admin
@@ -205,6 +245,11 @@ services:
     environment:
       - DEMO_SCHEME=${DEMO_SCHEME:-https}
       - ISSUER_HOST=${ISSUER_HOST:-issuer.localhost}
+      # Bare passthrough, no default - see ../../../eudi-gateway/docker-compose.yaml's
+      # comment on DEMO_TLS_DISABLED for why it must be truly absent (not
+      # set-to-empty) when unset. Controls haproxy.conf's own `.if
+      # defined(DEMO_TLS_DISABLED)` around this stack's :443 bind.
+      - DEMO_TLS_DISABLED
     networks:
       - default
 

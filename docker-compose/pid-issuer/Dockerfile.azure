@@ -1,0 +1,23 @@
+# Thin wrapper for Azure Container Apps (or any target with no equivalent of
+# docker-compose's runtime bind mount). issuer-keys.jks is static, already
+# git-committed demo key material - not a real secret - so baking it into
+# the image at build time is simpler than round-tripping a binary keystore
+# through a string-valued Container Apps "secret" for no security benefit.
+# See docker-compose.yaml's own `pid-issuer.volumes` comment for context on
+# what this file is; locally, that bind mount is still how it's supplied -
+# this wrapper is additive, not a replacement.
+#
+# Build the base Buildpacks image first (from the repo root), then this on
+# top of it, then push:
+#   ./gradlew bootBuildImage                          # -> build/pid-issuer:latest
+#   cd docker-compose/pid-issuer
+#   docker build -f Dockerfile.azure -t trusteqaigarage.azurecr.io/eudi-issuer-pidissuer:latest .
+#   docker push trusteqaigarage.azurecr.io/eudi-issuer-pidissuer:latest
+FROM build/pid-issuer:latest
+# The base image's own default user (confirmed via `docker run ... id`: uid
+# 1002 gid 1001, named "cnb") can't write to "/" - switch to root only for
+# this one COPY, then switch back so the app still runs as non-root, same as
+# the base image intended.
+USER root
+COPY issuer-keys.jks /issuer-keys.jks
+USER cnb
