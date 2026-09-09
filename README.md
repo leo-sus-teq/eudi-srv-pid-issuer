@@ -19,7 +19,9 @@ the [EUDI Wallet Reference Implementation project description](https://github.co
 >   `pid-issuer` service is set to `pull_policy: never` and expects a
 >   locally-built image, not the upstream `ghcr.io` one. Run
 >   `./gradlew bootBuildImage` from this directory *before* `docker compose
->   up` (and again after any source or branding change).
+>   up` (and again after any source or branding change) - or, from the
+>   top-level repo, just run `./build-images.sh`/`build-images.ps1` once,
+>   which does this for both this project and the verifier backend together.
 > - **Credential coverage**: beyond the PID/mDL/Learning Credential table
 >   below, this demo's `docker-compose.yaml` also issues a **European
 >   Health Insurance Card**, **Residence Permit**, **Schufa Credit Report**,

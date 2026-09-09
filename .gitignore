@@ -54,3 +54,6 @@ src/main/resources/issuer-keys.jks
 !docker-compose/haproxy/certs/.gitkeep
 !docker-compose/keycloak/certs/.gitkeep
 !docker-compose/status-list/certs/.gitkeep
+
+# Stamp file for the top-level Makefile's incremental image-build tracking
+.image-built
