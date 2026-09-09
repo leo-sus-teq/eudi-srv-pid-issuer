@@ -31,7 +31,15 @@ services:
       dockerfile: Dockerfile
       args:
         VERSION: ${KEYCLOAK_ABCA_EXTENSION_VERSION}
-    image: keycloak-abca:${KEYCLOAK_ABCA_EXTENSION_VERSION}
+    # A published tag, not a local-only one - `docker compose up -d` pulls
+    # this from GHCR when no local image with this exact tag exists yet
+    # (Compose's own default: pull first, build from the `build:` block
+    # above only if that pull fails - see ../../../push-images.sh and the
+    # top-level README's GHCR section). `build.args.VERSION` above still
+    # controls what actually gets built either way; only the tag name no
+    # longer carries the version suffix, to match this demo's :latest-only
+    # convention everywhere else.
+    image: ghcr.io/leo-sus-teq/eudi-issuer-keycloak:latest
     container_name: keycloak
     command:
       - start-dev
@@ -90,7 +98,9 @@ services:
       dockerfile: Dockerfile
       args:
         VERSION: ${STATUS_LIST_VERSION}
-    image: status-list:${STATUS_LIST_VERSION}
+    # See keycloak's own `image:` comment above - same reasoning, same
+    # pull-then-build-as-fallback behavior, same tag-name simplification.
+    image: ghcr.io/leo-sus-teq/eudi-issuer-status-list:latest
     container_name: status-list
     environment:
       API_key: aaa-bbb-ccc
@@ -103,13 +113,18 @@ services:
       - default
 
   pid-issuer:
-    # Built locally via `./gradlew bootBuildImage` from the source in this repo
-    # (rebuild after any source/branding change and re-run `docker compose up`).
-    # Tag is "build/pid-issuer:latest" because build.gradle.kts's bootBuildImage
-    # block sets imageName = "$group/${project.name}", where inside that block
-    # `group` resolves to the Task's group ("build"), not the project's group.
-    image: build/pid-issuer:latest
-    pull_policy: never
+    # No `build:` block here - Compose itself can't build this (it's Spring
+    # Boot's own Cloud Native Buildpacks integration, `./gradlew
+    # bootBuildImage`, not a Dockerfile - see ../../build-images.sh). If
+    # you've run that (or ../../Makefile's `make images`) it produces
+    # "build/pid-issuer:latest" locally and re-tags it to the name below
+    # (build.gradle.kts's own imageName setting is unrelated and unchanged -
+    # see its own comment there for why it's "build/pid-issuer"). Otherwise,
+    # `docker compose up -d` pulls this tag from GHCR - no `pull_policy:
+    # never` override anymore, since "not built locally yet" is now the
+    # normal, successful case (see ../../push-images.sh and the top-level
+    # README's GHCR section), not something to hard-refuse.
+    image: ghcr.io/leo-sus-teq/eudi-issuer-pidissuer:latest
     container_name: pid-issuer
     depends_on:
       keycloak:
